@@ -21,21 +21,40 @@ body:
       label: Version
       description: What version of our software are you running?
       options:
-        - v4.0 (Latest)
-        - v3.0
+        - v4.2.0 (Latest)
+        - v4.1.0
+        - v4.0.0
+        - v3.0.0
         - Older
     validations:
       required: true
-  - type: dropdown
-    id: build
+  - type: textarea
+    id: pc-specs
     attributes:
-      label: Build Type
-      description: Which build are you using?
-      options:
-        - Stremio Kai (Full)
-        - Stremio Kai Zero
+      label: PC Specifications
+      description: |
+        Please provide your hardware details:
+        - CPU:
+        - GPU:
+        - RAM:
+        - OS Version:
+        - Resolution:
+        - Scale:
+      placeholder: |
+        CPU: AMD Ryzen 5 5600X
+        GPU: NVIDIA RTX 3070
+        RAM: 16GB
+        OS: Windows 11
+        Resolution: 1920x1080
+        Scale: 100%
     validations:
       required: true
+  - type: markdown
+    attributes:
+      value: |
+        > [!IMPORTANT]
+        > **AV1 streams and RTX enhancements (HDR/Super Resolution) are NOT supported.**
+        > If your report concerns AV1 or RTX-related issues, it will be ignored and closed immediately. Please ensure these are disabled before reporting.
   - type: textarea
     id: steps
     attributes:
@@ -52,5 +71,5 @@ body:
     id: logs
     attributes:
       label: Relevant log output
-      description: Please copy and paste any relevant log output. Use the MPV console (Default `~` key) or check `LOGS.log` if applicable.
+      description: Please copy and paste any relevant log output of your `LOGS.log` file here, or the entire file if you are reporting a crash.
       render: shell
