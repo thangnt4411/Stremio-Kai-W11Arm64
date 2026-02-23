@@ -286,6 +286,12 @@ body {
   justify-content: center;
   margin-bottom: 1.5rem;
   color: var(--purple-light);
+  opacity: 0.8;
+  transition: all 0.3s ease;
+}
+
+.feature-card:hover .feature-icon {
+  opacity: 1;
 }
 
 .feature-card h3 {
