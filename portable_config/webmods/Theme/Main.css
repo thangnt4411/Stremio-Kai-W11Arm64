@@ -206,8 +206,8 @@ html {
     content: "";
     position: absolute;
     top: 80px;
-    right: -100px;
-    bottom: 160px;
+    right: -20px;       /* original: right: -100px; */
+    bottom: 220px;      /* original: bottom: 160px; */
     left: 0;
     background: transparent;
     pointer-events: auto;

@@ -1,10 +1,14 @@
 --[[
   @name Smart Track Selector
   @description Automatically selects best audio and subtitle tracks based on configurable preferences
-  @version 1.5.0
+  @version 1.6.0
   @author allecsc
   
   @changelog
+    v1.6.0 - Fixed stored preference validation against rejection rules
+           - Added external subtitle waiting (10s window with track-list observer)
+           - Fixed user vs auto change detection (auto_change_in_progress flag)
+           - Fixed stored pref matching to use substring match (contains_keyword)
     v1.5.0 - Fixed persistence: Now correctly restores saved track preferences per series
            - Moved persistence file to scripts/smart-track-selector/track_preferences.json
            - Fixed race condition in checking stored preferences vs smart selection
@@ -71,7 +75,8 @@ options.read_options(config, "smart_track_selector")
 -- 2. CONSTANTS (not configurable)
 --------------------------------------------------------------------------------
 local DEFENSE_DURATION = 2   -- seconds to defend selection from external changes (Stremio's native memory)
-local SCRIPT_NAME = "smart_track_selector"
+local EXTERNAL_SUB_TIMEOUT = 10 -- seconds to wait for external subtitles to load
+local AUTO_CHANGE_DELAY = 0.5 -- seconds to wait for observer to fire before allowing saves
 local PERSISTENCE_FILE = mp.command_native({"expand-path", "~~/scripts/smart-track-selector/track_preferences.json"})
 
 --------------------------------------------------------------------------------
@@ -87,6 +92,11 @@ local state = {
     subtitle_mode = "default", -- subtitleSelectionMode: "default", "forced", "off"
     pending_save = nil,       -- Debounce timer
     prefs_cache = nil,        -- In-memory cache of track_preferences.json
+    auto_change_in_progress = false, -- Flag to distinguish script vs user changes
+    -- External subtitle watching
+    external_sub_watch = false, -- True when waiting for external subs
+    external_sub_timer = nil,   -- Timer for external sub window
+    last_sub_count = 0,         -- Track count to detect new subs
 }
 
 -- Forward declarations to handle cross-references
@@ -108,6 +118,19 @@ end
 
 local function log_verbose(msg)
     mp.msg.verbose(msg)
+end
+
+-- Safe track setting: marks change as script-initiated to prevent save trigger
+local function set_sid_safe(value)
+    state.auto_change_in_progress = true
+    mp.set_property("sid", value)
+    mp.add_timeout(AUTO_CHANGE_DELAY, function() state.auto_change_in_progress = false end)
+end
+
+local function set_aid_safe(value)
+    state.auto_change_in_progress = true
+    mp.set_property("aid", value)
+    mp.add_timeout(AUTO_CHANGE_DELAY, function() state.auto_change_in_progress = false end)
 end
 
 --------------------------------------------------------------------------------
@@ -215,9 +238,6 @@ local function evaluate_track(track, track_type, cfg)
         track_type, track.id, lang, title))
 
     -- REJECTION CHECKS (early exit)
-
-
-
     -- Check rejected languages
     if matches_language(lang, cfg.reject_langs) then
         log_debug("    → REJECTED: language in reject list")
@@ -263,8 +283,6 @@ local function is_better_score(score_a, score_b)
     if not score_b then return true end
     if not score_a then return false end
 
-
-
     -- Language priority (lower is better)
     if score_a.lang_priority < score_b.lang_priority then return true end
     if score_a.lang_priority > score_b.lang_priority then return false end
@@ -272,9 +290,6 @@ local function is_better_score(score_a, score_b)
     -- Keyword priority (lower is better, used if languages are equal)
     if score_a.keyword_priority < score_b.keyword_priority then return true end
     if score_a.keyword_priority > score_b.keyword_priority then return false end
-
-
-
     -- Track order as tiebreaker (lower is better)
     return score_a.track_order < score_b.track_order
 end
@@ -470,10 +485,12 @@ end
 local function defend_subtitle(name, value)
     if state.defense_active and state.best_sid then
         if value and value ~= state.best_sid then
+            state.auto_change_in_progress = true
             mp.set_property("sid", state.best_sid)
+            mp.add_timeout(AUTO_CHANGE_DELAY, function() state.auto_change_in_progress = false end)
             log_verbose(string.format("Restored subtitle track #%d (overrode external change)", state.best_sid))
         end
-    elseif not state.defense_active then
+    elseif not state.defense_active and not state.auto_change_in_progress then
         -- Passive mode: User changed track, queue save
         queue_save()
     end
@@ -482,10 +499,12 @@ end
 local function defend_audio(name, value)
     if state.defense_active and state.best_aid then
         if value and value ~= state.best_aid then
+            state.auto_change_in_progress = true
             mp.set_property("aid", state.best_aid)
+            mp.add_timeout(AUTO_CHANGE_DELAY, function() state.auto_change_in_progress = false end)
             log_verbose(string.format("Restored audio track #%d (overrode external change)", state.best_aid))
         end
-    elseif not state.defense_active then
+    elseif not state.defense_active and not state.auto_change_in_progress then
         -- Passive mode: User changed track, queue save
         queue_save()
     end
@@ -554,29 +573,54 @@ local function check_stored_preference(track_list)
     
     log_info("Found stored preference for " .. state.title_id)
     
+    local cfg = parse_config()
     local found_aid = nil
     local found_sid = nil
     
     -- Try to find matching tracks
     for _, track in ipairs(track_list) do
         -- Check Audio
-        if track.type == "audio" and show_pref.audio then
-            if track.lang == show_pref.audio.lang then
-                -- Optional: Check codec/channels if we want stricter matching
-                found_aid = track.id
+        if track.type == "audio" and show_pref.audio and not found_aid then
+            -- Use contains_keyword for consistent matching with smart selection
+            if contains_keyword(track.lang, show_pref.audio.lang) then
+                -- VALIDATION: Check against rejection rules
+                local title = track.title or ""
+                local is_rejected = matches_language(track.lang, cfg.audio.reject_langs)
+                if not is_rejected then
+                    is_rejected = matches_keyword(title, cfg.audio.reject_keywords)
+                end
+                
+                if is_rejected then
+                    log_info("  Stored audio preference REJECTED by current rules: " .. (track.lang or "?"))
+                else
+                    found_aid = track.id
+                end
             end
         end
         
         -- Check Sub
-        if track.type == "sub" and show_pref.sub then
+        if track.type == "sub" and show_pref.sub and not found_sid then
             if show_pref.sub.lang == "none" then
                -- User explicitly wanted NO subtitles
                found_sid = "no"
-            elseif track.lang == show_pref.sub.lang then
+            elseif contains_keyword(track.lang, show_pref.sub.lang) then
                  -- Check forced status to differentiate
                  local is_forced = track.forced or (track.title and track.title:lower():find("forced"))
                  if is_forced == show_pref.sub.is_forced then
-                     found_sid = track.id
+                     -- VALIDATION: Check against rejection rules
+                     local title = track.title or ""
+                     if track.forced then title = title .. " forced" end
+                     
+                     local is_rejected = matches_language(track.lang, cfg.sub.reject_langs)
+                     if not is_rejected then
+                         is_rejected = matches_keyword(title, cfg.sub.reject_keywords)
+                     end
+                     
+                     if is_rejected then
+                         log_info("  Stored sub preference REJECTED by current rules: " .. (track.lang or "?"))
+                     else
+                         found_sid = track.id
+                     end
                  end
             end
         end
@@ -682,7 +726,7 @@ local function on_file_loaded()
     if state.subtitle_mode == "off" then
         log_info("Subtitle Mode is OFF. Disabling subtitles.")
         state.best_sid = "no"
-        mp.set_property("sid", "no")
+        set_sid_safe("no")
         activate_defense()
         return -- Exit early
     end
@@ -696,11 +740,11 @@ local function on_file_loaded()
          
          if stored_aid then 
              state.best_aid = stored_aid
-             mp.set_property("aid", stored_aid)
+             set_aid_safe(stored_aid)
          end
          if stored_sid then
              state.best_sid = stored_sid
-             mp.set_property("sid", stored_sid)
+             set_sid_safe(stored_sid)
          end
          
          activate_defense() 
@@ -719,7 +763,7 @@ local function on_file_loaded()
     end
     
     if state.best_aid then
-        mp.set_property("aid", state.best_aid)
+        set_aid_safe(state.best_aid)
     end
 
     -- SUBTITLE SELECTION
@@ -747,11 +791,73 @@ local function on_file_loaded()
     end
     
     if state.best_sid then
-        mp.set_property("sid", state.best_sid)
+        set_sid_safe(state.best_sid)
     end
     
     -- Activate defense
     activate_defense()
+    
+    -- If no subtitle found, start watching for external subs
+    if not state.best_sid and state.subtitle_mode ~= "off" then
+        log_info("No suitable sub found. Waiting for external subs (" .. EXTERNAL_SUB_TIMEOUT .. "s)...")
+        state.external_sub_watch = true
+        -- Count only subtitle tracks, not all tracks
+        local initial_sub_count = 0
+        for _, t in ipairs(track_list) do
+            if t.type == "sub" then initial_sub_count = initial_sub_count + 1 end
+        end
+        state.last_sub_count = initial_sub_count
+        
+        -- Set timeout to stop watching
+        if state.external_sub_timer then
+            state.external_sub_timer:kill()
+        end
+        state.external_sub_timer = mp.add_timeout(EXTERNAL_SUB_TIMEOUT, function()
+            if state.external_sub_watch then
+                log_info("External sub watch timeout. No suitable sub found.")
+                state.external_sub_watch = false
+            end
+        end)
+    end
+end
+
+-- Re-evaluate subtitles when new tracks appear (for external subs)
+local function on_track_list_change(name, track_list)
+    if not state.external_sub_watch or not track_list then return end
+    
+    -- Count current subtitle tracks
+    local sub_count = 0
+    for _, track in ipairs(track_list) do
+        if track.type == "sub" then sub_count = sub_count + 1 end
+    end
+    
+    -- If new subs appeared, re-evaluate
+    if sub_count > state.last_sub_count then
+        log_info("New subtitle track detected (" .. state.last_sub_count .. " -> " .. sub_count .. "). Re-evaluating...")
+        state.last_sub_count = sub_count
+        
+        -- Try to find a suitable sub from the new tracks
+        local new_sid = nil
+        if state.subtitle_mode == "forced" then
+            new_sid = select_forced_sub_only(track_list)
+        else
+            new_sid = select_forced_sub_for_native(track_list)
+            if not new_sid then
+                new_sid = select_best_track("sub", track_list)
+            end
+        end
+        
+        if new_sid then
+            log_info("Found suitable external sub #" .. tostring(new_sid))
+            state.best_sid = new_sid
+            set_sid_safe(new_sid)
+            state.external_sub_watch = false
+            if state.external_sub_timer then
+                state.external_sub_timer:kill()
+                state.external_sub_timer = nil
+            end
+        end
+    end
 end
 
 --------------------------------------------------------------------------------
@@ -761,6 +867,7 @@ end
 mp.register_event("file-loaded", on_file_loaded)
 mp.observe_property("sid", "string", defend_subtitle)
 mp.observe_property("aid", "string", defend_audio)
+mp.observe_property("track-list", "native", on_track_list_change)
 
 --------------------------------------------------------------------------------
 -- 13. DYNAMIC CONFIGURATION (SCRIPT MESSAGE)
@@ -852,12 +959,6 @@ local function update_config(json_data)
         state.subtitle_mode = new_config.subtitle_selection_mode
         log_info("  Updated subtitle_mode: " .. tostring(state.subtitle_mode))
     end
-    
-
-    
-
-    
-
 
     -- ═════════════════════════════════════════════════════════════════════════
     -- EFFECTIVE CONFIG LOGGING
@@ -875,7 +976,6 @@ local function update_config(json_data)
              ", Remember=" .. tostring(state.remember_selection))
     log_info("===========================================")
 
-
     -- Trigger re-evaluation
     -- Disable defense temporarily to allow changes
     local was_defending = state.defense_active
@@ -890,11 +990,11 @@ local function update_config(json_data)
          log_info("Applying stored preference override for " .. tostring(state.title_id))
          if stored_aid then 
              state.best_aid = stored_aid
-             mp.set_property("aid", stored_aid)
+             set_aid_safe(stored_aid)
          end
          if stored_sid then
              state.best_sid = stored_sid
-             mp.set_property("sid", stored_sid)
+             set_sid_safe(stored_sid)
          end
          -- Re-activate defense to protect our override from Stremio
          activate_defense() 
@@ -910,16 +1010,20 @@ local function update_config(json_data)
         state.best_aid = select_best_track("audio", track_list)
     end
     if state.best_aid then
-        mp.set_property("aid", state.best_aid)
+        set_aid_safe(state.best_aid)
     end
     
-    -- Subtitles
-    state.best_sid = select_forced_sub_for_native(track_list)
-    if not state.best_sid then
-        state.best_sid = select_best_track("sub", track_list)
+    -- Subtitles (respect subtitle_mode)
+    if state.subtitle_mode == "forced" then
+        state.best_sid = select_forced_sub_only(track_list)
+    else
+        state.best_sid = select_forced_sub_for_native(track_list)
+        if not state.best_sid then
+            state.best_sid = select_best_track("sub", track_list)
+        end
     end
     if state.best_sid then
-        mp.set_property("sid", state.best_sid)
+        set_sid_safe(state.best_sid)
     end
     
     -- Restore defense
@@ -930,4 +1034,4 @@ end
 
 mp.register_script_message("track-selector-config", update_config)
 
-log_info("Smart Track Selector initialized (v1.4.0) - Dynamic Config Enabled")
+log_info("Smart Track Selector initialized (v1.6.0) - Dynamic Config Enabled")

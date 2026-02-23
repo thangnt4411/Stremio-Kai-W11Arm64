@@ -31,8 +31,7 @@
     {
       name: "Cycle Audio Presets",
       keys: ["`"],
-      description:
-        "Switch between Night, OFF, Cinema (-16LUFS) and Anime  modes.",
+      description: "Switch between Night Mode, Voice Clarity, and OFF modes.",
     },
     {
       name: "Anime4K: Optimized+",

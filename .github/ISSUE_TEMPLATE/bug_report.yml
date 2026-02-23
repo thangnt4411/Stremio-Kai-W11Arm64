@@ -15,19 +15,6 @@ body:
       placeholder: Tell us what you see!
     validations:
       required: true
-  - type: dropdown
-    id: version
-    attributes:
-      label: Version
-      description: What version of our software are you running?
-      options:
-        - v4.2.0 (Latest)
-        - v4.1.0
-        - v4.0.0
-        - v3.0.0
-        - Older
-    validations:
-      required: true
   - type: textarea
     id: pc-specs
     attributes:

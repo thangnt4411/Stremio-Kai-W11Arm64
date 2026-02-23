@@ -10,8 +10,8 @@
   window.KaiUpdatePlugin.initialized = true;
 
   // Configuration
-  const CONFIG = {
-    CURRENT_VERSION: "4.2.0",
+  window.KaiUpdatePlugin.config = {
+    CURRENT_VERSION: "4.5.0",
     REPO_URL:
       "https://api.github.com/repos/allecsc/Stremio-Kai/releases/latest",
     RELEASES_URL: "https://allecsc.github.io/Stremio-Kai/changelog.html",
@@ -19,6 +19,8 @@
     LOGO_PULSING_MAX_RETRIES: 10,
     LOGO_PULSING_RETRY_INTERVAL_MS: 1000,
   };
+
+  const CONFIG = window.KaiUpdatePlugin.config;
 
   // State
   let state = {

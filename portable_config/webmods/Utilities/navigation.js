@@ -52,7 +52,8 @@
 
     /**
      * Enhances the back button behavior on detail pages.
-     * Redirects to board (#/) instead of going back in history when on a detail page.
+     * - Episode chain (ep1→ep2→ep3): skips back to board (#/).
+     * - Contextual navigation (Library→detail): goes back normally.
      */
     enhanceBackButton() {
       document.addEventListener(
@@ -61,15 +62,26 @@
           const backButton = e.target.closest(".back-button-container-lDB1N");
           if (!backButton) return;
 
-          // Check if we are on a detail page
-          if (window.location.hash.startsWith("#/detail/")) {
-            // Prevent default Stremio behavior (history.back)
-            e.preventDefault();
-            e.stopPropagation();
+          // Only intercept on detail pages
+          if (!window.location.hash.startsWith("#/detail/")) return;
 
-            // Redirect to Board
-            window.location.href = "#/";
-          }
+          e.preventDefault();
+          e.stopPropagation();
+
+          // Go back naturally, then check where we landed
+          history.back();
+
+          window.addEventListener(
+            "hashchange",
+            () => {
+              // If we landed on another detail page (episode chain), skip to board
+              if (window.location.hash.startsWith("#/detail/")) {
+                window.location.href = "#/";
+              }
+              // Otherwise (Library, Discover, etc.) — do nothing, we're already there
+            },
+            { once: true },
+          );
         },
         { capture: true },
       );

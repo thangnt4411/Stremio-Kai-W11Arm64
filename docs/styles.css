@@ -1,5 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap');
-
 :root {
   --purple-primary: #8B5CF6;
   --purple-light: #A855F7;
@@ -80,6 +78,11 @@ body {
   color: var(--purple-light);
 }
 
+.nav-discord {
+  display: flex;
+  align-items: center;
+}
+
 .nav-github {
   display: flex;
   align-items: center;
@@ -88,6 +91,20 @@ body {
   background: rgba(139, 92, 246, 0.1);
   border: 1px solid var(--border-color);
   border-radius: 6px;
+}
+
+.nav-toggle {
+  display: none;
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  cursor: pointer;
+  padding: 0.5rem;
+  z-index: 1001;
+}
+
+.nav-toggle svg {
+  display: block;
 }
 
 /* Hero Section */
@@ -180,6 +197,17 @@ body {
   color: var(--text-secondary);
 }
 
+.badge-featured {
+  text-decoration: none;
+  transition: border-color 0.3s, color 0.3s, background 0.3s;
+}
+
+.badge-featured:hover {
+  color: var(--purple-light);
+  border-color: var(--purple-light);
+  background: rgba(139, 92, 246, 0.2);
+}
+
 .hero-buttons {
   display: flex;
   gap: 1rem;
@@ -229,16 +257,6 @@ body {
   color: var(--text-secondary);
   font-size: 0.9rem;
   margin-bottom: 3rem;
-}
-
-.hero-screenshot {
-  width: 100%;
-  max-width: 900px;
-  border-radius: 12px;
-  border: 1px solid var(--border-color);
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5),
-              0 0 40px rgba(139, 92, 246, 0.2);
-  margin-top: 1rem;
 }
 
 /* Features Section */
@@ -307,27 +325,24 @@ body {
   text-wrap: pretty;
 }
 
-/* Gallery Section */
-.gallery {
-  padding: 6rem 0;
-  background: linear-gradient(180deg, transparent 0%, rgba(139, 92, 246, 0.03) 50%, transparent 100%);
+/* Scroll-reveal animation states (used by IntersectionObserver in script.js) */
+.fade-initial {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.6s ease, transform 0.6s ease,
+              border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
-.gallery h2 {
-  text-align: center;
-  font-size: 2.5rem;
-  margin-bottom: 3rem;
-  background: linear-gradient(135deg, #ffffff 0%, var(--purple-light) 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+.fade-visible {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 /* Carousel Styles */
 .carousel-container {
   position: relative;
   width: 100%;
-  max-width: 1400px; /* Signficantly wider for impact */
+  max-width: 1400px; /* Significantly wider for impact */
   margin: 0 auto;
   perspective: 1000px;
   height: 650px; /* Taller to fit the larger image */
@@ -349,7 +364,7 @@ body {
 .carousel-item {
   position: absolute;
   width: 90%; 
-  max-width: 1100px; /* Massive hookup size */
+  max-width: 1100px; /* Width cap for visual impact */
   aspect-ratio: 16/9.5;
   border-radius: 12px;
   transition: all 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
@@ -631,8 +646,9 @@ footer {
 }
 
 .footer-brand img {
-  width: 48px;
-  height: 48px;
+  width: 60px;
+  height: 60px;
+  padding: 0 50px;
   margin-bottom: 1rem;
   filter: drop-shadow(0 0 10px var(--glow));
 }
@@ -693,17 +709,26 @@ footer {
   backdrop-filter: blur(10px);
 }
 
-.lightbox-content {
-  margin: auto;
+.lightbox.lightbox-open {
   display: block;
+}
+
+/* Lightbox media — hidden by default, shown via JS class toggle */
+.lightbox-content {
+  display: none;
+  margin: auto;
   max-width: 90%;
-  max-height: 85%; /* Slightly reduced to make room for caption */
+  max-height: 85%;
   position: absolute;
-  top: 48%; /* Shifted up slightly */
+  top: 48%;
   left: 50%;
   transform: translate(-50%, -50%);
   border-radius: 8px;
   box-shadow: 0 0 50px rgba(139, 92, 246, 0.5);
+}
+
+.lightbox-content.lightbox-media-active {
+  display: block;
 }
 
 #lightbox-caption {
@@ -736,35 +761,35 @@ footer {
   color: var(--purple-light);
 }
 
-/* Navigation arrows - glassy text effect without background/borders */
+/* Navigation arrows — glassy text effect without background/borders */
 .lightbox-nav {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  background: transparent !important;
-  border: none !important;
-  box-shadow: none !important;
-  backdrop-filter: none !important;
-  color: rgba(255, 255, 255, 0.4) !important;
-  cursor: pointer !important;
-  transition: all 0.3s ease-out !important;
-  font-size: 40px !important; /* Much larger arrows */
-  font-weight: 300 !important;
-  width: 70px !important;
-  height: 70px !important;
-  padding-bottom: 8px !important; /* Added padding for scaling buffer */
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  backdrop-filter: none;
+  color: rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+  transition: all 0.3s ease-out;
+  font-size: 40px;
+  font-weight: 300;
+  width: 70px;
+  height: 70px;
+  padding-bottom: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   z-index: 10001;
 }
 
 .lightbox-nav:hover {
-  color: rgba(255, 255, 255, 0.9) !important;
-  transform: translateY(-50%) scale(1.15) !important; /* Reduced scale for better consistency */
+  color: rgba(255, 255, 255, 0.9);
+  transform: translateY(-50%) scale(1.15);
   text-shadow: 0 0 15px rgba(255, 255, 255, 0.8),
     0 0 25px rgba(255, 255, 255, 0.6), 0 0 35px rgba(255, 255, 255, 0.4),
-    2px 2px 3px rgba(0, 0, 0, 0.9) !important;
+    2px 2px 3px rgba(0, 0, 0, 0.9);
 }
 
 .lightbox-nav.prev {
@@ -777,19 +802,30 @@ footer {
   padding-left: 30px;
 }
 
-.hero-screenshot {
-  cursor: zoom-in;
-  transition: transform 0.3s ease;
-}
 
-.hero-screenshot:hover {
-  transform: scale(1.01);
-}
 
 /* Responsive */
 @media (max-width: 768px) {
+  .nav-toggle {
+    display: block;
+  }
+
   .nav-links {
     display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: rgba(10, 10, 10, 0.95);
+    backdrop-filter: blur(20px);
+    flex-direction: column;
+    padding: 1rem 2rem 1.5rem;
+    border-bottom: 1px solid var(--border-color);
+    gap: 0.75rem;
+  }
+
+  .nav-links.active {
+    display: flex;
   }
 
   .hero h1 {
@@ -806,7 +842,6 @@ footer {
   }
 
   .features-grid,
-  .gallery-grid,
   .faq-grid {
     grid-template-columns: 1fr;
   }
@@ -824,10 +859,10 @@ footer {
   .footer-links {
     grid-template-columns: 1fr;
   }
-  
+
   /* Hide lightbox arrows on mobile - gestures only */
   .lightbox-nav {
     display: none !important;
   }
 }
-}
+

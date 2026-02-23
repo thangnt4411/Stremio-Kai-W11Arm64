@@ -1,58 +1,66 @@
-// Fetch latest release data from GitHub
-async function fetchLatestRelease() {
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const RELEASES_URL = "https://github.com/allecsc/Stremio-Kai/releases/latest";
+
+// sessionStorage helper — returns parsed JSON or null
+function getCached(key) {
   try {
-    const response = await fetch(
-      "https://api.github.com/repos/allecsc/Stremio-Kai/releases/latest",
-    );
-    const data = await response.json();
-
-    // Update version info
-    document.getElementById("version-info").textContent =
-      `Latest: ${data.tag_name}`;
-
-    // Find installer and portable assets
-    const installerAsset = data.assets.find((asset) =>
-      asset.name.toLowerCase().includes(".exe"),
-    );
-    const portableAsset = data.assets.find(
-      (asset) =>
-        asset.name.toLowerCase().includes(".7z") ||
-        asset.name.toLowerCase().includes(".zip"),
-    );
-
-    // Update download buttons
-    if (installerAsset) {
-      document.getElementById("download-installer").href =
-        installerAsset.browser_download_url;
-    } else {
-      document.getElementById("download-installer").href = data.html_url;
+    const raw = sessionStorage.getItem(key);
+    if (!raw) return null;
+    const { ts, data } = JSON.parse(raw);
+    if (Date.now() - ts > CACHE_TTL_MS) {
+      sessionStorage.removeItem(key);
+      return null;
     }
-
-    if (portableAsset) {
-      document.getElementById("download-portable").href =
-        portableAsset.browser_download_url;
-    } else {
-      document.getElementById("download-portable").href = data.html_url;
-    }
-  } catch (error) {
-    console.error("Error fetching release data:", error);
-    document.getElementById("version-info").textContent =
-      "Visit GitHub for latest version";
-    document.getElementById("download-installer").href =
-      "https://github.com/allecsc/Stremio-Kai/releases/latest";
-    document.getElementById("download-portable").href =
-      "https://github.com/allecsc/Stremio-Kai/releases/latest";
+    return data;
+  } catch {
+    return null;
   }
 }
 
-// Fetch total downloads count
-async function fetchDownloads() {
+function setCache(key, data) {
   try {
-    const response = await fetch(
-      "https://api.github.com/repos/allecsc/Stremio-Kai/releases",
-    );
-    const releases = await response.json();
+    sessionStorage.setItem(key, JSON.stringify({ ts: Date.now(), data }));
+  } catch {
+    /* quota exceeded — non-critical */
+  }
+}
 
+// Fetch all releases and populate both the latest-release info and total downloads
+async function fetchReleaseData() {
+  try {
+    let releases = getCached("kai_releases");
+    if (!releases) {
+      const response = await fetch(
+        "https://api.github.com/repos/allecsc/Stremio-Kai/releases",
+      );
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      releases = await response.json();
+      setCache("kai_releases", releases);
+    }
+
+    // --- Latest release (first entry) ---
+    const latest = releases[0];
+    if (latest) {
+      document.getElementById("version-info").textContent =
+        `Latest: ${latest.tag_name}`;
+
+      const installerAsset = latest.assets.find((asset) =>
+        asset.name.toLowerCase().includes(".exe"),
+      );
+      const portableAsset = latest.assets.find((asset) => {
+        const n = asset.name.toLowerCase();
+        return n.includes(".7z") || n.includes(".zip");
+      });
+
+      document.getElementById("download-installer").href = installerAsset
+        ? installerAsset.browser_download_url
+        : latest.html_url;
+      document.getElementById("download-portable").href = portableAsset
+        ? portableAsset.browser_download_url
+        : latest.html_url;
+    }
+
+    // --- Total downloads across all releases ---
     let totalDownloads = 0;
     releases.forEach((release) => {
       release.assets.forEach((asset) => {
@@ -61,15 +69,18 @@ async function fetchDownloads() {
     });
 
     document.getElementById("download-count").innerHTML = `
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                <polyline points="7 10 12 15 17 10"></polyline>
-                <line x1="12" y1="15" x2="12" y2="3"></line>
+            <svg width="16" height="16" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
+                <polyline points="17 6 23 6 23 12"></polyline>
             </svg>
             ${totalDownloads.toLocaleString()} Downloads
         `;
   } catch (error) {
-    console.error("Error fetching downloads:", error);
+    console.error("Error fetching release data:", error);
+    document.getElementById("version-info").textContent =
+      "Visit GitHub for latest version";
+    document.getElementById("download-installer").href = RELEASES_URL;
+    document.getElementById("download-portable").href = RELEASES_URL;
   }
 }
 
@@ -180,14 +191,14 @@ function initCarousel() {
     if (isVideo && lightboxVideo) {
       // Show video, hide image
       lightboxVideo.src = mediaSrc;
-      lightboxVideo.style.display = "block";
-      lightboxImg.style.display = "none";
+      lightboxVideo.classList.add("lightbox-media-active");
+      lightboxImg.classList.remove("lightbox-media-active");
     } else {
       // Show image, hide video
       lightboxImg.src = mediaSrc;
-      lightboxImg.style.display = "block";
+      lightboxImg.classList.add("lightbox-media-active");
       if (lightboxVideo) {
-        lightboxVideo.style.display = "none";
+        lightboxVideo.classList.remove("lightbox-media-active");
         lightboxVideo.src = ""; // Stop any playing video
       }
     }
@@ -199,7 +210,7 @@ function initCarousel() {
       : sourceItem.querySelector("img")?.alt || "";
     if (lightboxCaption) lightboxCaption.textContent = captionText;
 
-    lightbox.style.display = "block";
+    lightbox.classList.add("lightbox-open");
     document.body.style.overflow = "hidden";
   };
 
@@ -219,7 +230,7 @@ function initCarousel() {
 
   // Lightbox Controls
   const closeLightbox = () => {
-    lightbox.style.display = "none";
+    lightbox.classList.remove("lightbox-open");
     document.body.style.overflow = "auto";
     // Stop video playback when closing
     if (lightboxVideo) {
@@ -256,7 +267,7 @@ function initCarousel() {
 
   // Keyboard Navigation
   document.addEventListener("keydown", (e) => {
-    const isLbOpen = lightbox && lightbox.style.display === "block";
+    const isLbOpen = lightbox && lightbox.classList.contains("lightbox-open");
 
     if (e.key === "ArrowLeft") {
       if (isLbOpen) lbShowPrev();
@@ -346,28 +357,48 @@ function initAnimations() {
   const observer = new IntersectionObserver((entries) => {
     entries.forEach((entry) => {
       if (entry.isIntersecting) {
-        entry.target.style.opacity = "1";
-        entry.target.style.transform = "translateY(0)";
+        entry.target.classList.add("fade-visible");
+        observer.unobserve(entry.target); // No need to keep watching once visible
       }
     });
   }, observerOptions);
 
-  // Observe feature cards
-  document
-    .querySelectorAll(".feature-card, .faq-item, .gallery-item")
-    .forEach((el) => {
-      el.style.opacity = "0";
-      el.style.transform = "translateY(20px)";
-      el.style.transition = "opacity 0.6s ease, transform 0.6s ease";
-      observer.observe(el);
+  // Observe feature cards and FAQ items
+  document.querySelectorAll(".feature-card, .faq-item").forEach((el) => {
+    el.classList.add("fade-initial");
+    observer.observe(el);
+  });
+}
+
+// Mobile hamburger navigation toggle
+function initMobileNav() {
+  const toggle = document.querySelector(".nav-toggle");
+  const navLinks = document.querySelector(".nav-links");
+
+  if (toggle && navLinks) {
+    toggle.addEventListener("click", () => {
+      navLinks.classList.toggle("active");
+      toggle.setAttribute(
+        "aria-expanded",
+        navLinks.classList.contains("active"),
+      );
     });
+
+    // Close menu when a link is clicked
+    navLinks.querySelectorAll("a").forEach((link) => {
+      link.addEventListener("click", () => {
+        navLinks.classList.remove("active");
+        toggle.setAttribute("aria-expanded", "false");
+      });
+    });
+  }
 }
 
 // Initialize everything on page load
 document.addEventListener("DOMContentLoaded", () => {
-  fetchLatestRelease();
-  fetchDownloads();
+  fetchReleaseData();
   initCarousel();
   initSmoothScroll();
   initAnimations();
+  initMobileNav();
 });

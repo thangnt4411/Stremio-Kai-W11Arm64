@@ -890,27 +890,38 @@ window.HeroPlugin.UI = {
 
   injectCatalogToggle() {
     const HeroState = window.HeroPlugin.State;
-    const navBar = document.querySelector(
-      ".horizontal-nav-bar-ji5GB.horizontal-nav-bar-container-Y_zvK",
-    );
 
-    if (!navBar) return;
+    // Append to the native nav buttons container so proximity hover is handled naturally
+    const buttonsContainer = document.querySelector(".buttons-container-Oc5z1");
+    if (!buttonsContainer) return;
 
     let toggleBtn = document.getElementById("heroCatalogToggle");
 
     if (!toggleBtn) {
-      toggleBtn = document.createElement("button");
+      // Clone exact native button structure:
+      // <div tabindex="-1" class="button-container-xT9_L button-container-zVLH6">
+      //   <svg class="icon-T8MU6" ...>
+      toggleBtn = document.createElement("div");
       toggleBtn.id = "heroCatalogToggle";
-      toggleBtn.className = "hero-catalog-btn";
-      toggleBtn.setAttribute("onclick", "toggleCatalog()");
-      navBar.appendChild(toggleBtn);
+      toggleBtn.className =
+        "button-container-xT9_L button-container-zVLH6 hero-catalog-btn";
+      toggleBtn.setAttribute("tabindex", "-1");
+      toggleBtn.innerHTML = `<svg class="icon-T8MU6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/></svg>`;
+      toggleBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (typeof toggleCatalog === "function") toggleCatalog();
+      });
+      // Prepend so order is: Catalog | Fullscreen | Menu
+      buttonsContainer.prepend(toggleBtn);
       // Cache reference
       this.elements.catalogToggle = toggleBtn;
     }
 
-    // Always update text state
-    toggleBtn.textContent =
-      HeroState.currentCatalog === "movies" ? "🎌 Anime" : "📺 Movies";
+    // Update tooltip to reflect what the button will switch TO
+    toggleBtn.title =
+      HeroState.currentCatalog === "movies"
+        ? "Switch to Anime"
+        : "Switch to Movies";
   },
 
   async addHeroDiv() {

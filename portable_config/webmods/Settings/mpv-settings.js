@@ -47,6 +47,7 @@
     OSD_PROFILE_MESSAGES: "kai-osd-profile-messages",
     VULKAN_API: "kai-vulkan-api",
     ULTRAWIDE_ZOOM: "kai-ultrawide-zoom",
+    AUDIO_PRESET: "kai-audio-preset",
   };
 
   // ... (existing helper functions) ...
@@ -66,6 +67,12 @@
     { value: "original", label: "Original (Neutral)" },
     { value: "kai", label: "Kai (Default)" },
     { value: "vivid", label: "Vivid (High Contrast)" },
+  ];
+
+  const AUDIO_PRESETS = [
+    { value: "off", label: "Passthrough (Default)" },
+    { value: "night", label: "Night Mode (Reduce Bass & Rumble)" },
+    { value: "voice", label: "Voice Clarity (Boost Dialogue)" },
   ];
 
   // Languages (Moved to bottom of file)
@@ -455,6 +462,15 @@
   function setUltrawideZoom(value) {
     localStorage.setItem(STORAGE_KEYS.ULTRAWIDE_ZOOM, value.toString());
     console.log(`[MPV Settings] Ultrawide Zoom set to: ${value}`);
+  }
+
+  function getAudioPreset() {
+    return localStorage.getItem(STORAGE_KEYS.AUDIO_PRESET) || "off";
+  }
+
+  function setAudioPreset(value) {
+    localStorage.setItem(STORAGE_KEYS.AUDIO_PRESET, value);
+    console.log(`[MPV Settings] Audio Preset set to: ${value}`);
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -987,6 +1003,21 @@
 
     // Audio Smart Tracks Fragment
     const audioFrag = document.createDocumentFragment();
+
+    // 1. Audio Preset Dropdown
+    audioFrag.appendChild(
+      createDropdownOption(
+        "Audio Profile",
+        "Select a preferred audio processing mode.",
+        AUDIO_PRESETS,
+        getAudioPreset(),
+        (val) => {
+          setAudioPreset(val);
+          sendConfigUpdate();
+        },
+      ),
+    );
+
     audioFrag.appendChild(
       createToggleOption(
         "Match Audio to Video Language",

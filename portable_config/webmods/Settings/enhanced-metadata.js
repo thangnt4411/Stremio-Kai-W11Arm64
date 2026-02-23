@@ -28,7 +28,9 @@
     SECTION_INDEX: 3,
 
     // General Settings Info
-    CURRENT_VERSION: "4.2.0",
+    get CURRENT_VERSION() {
+      return window.KaiUpdatePlugin?.config?.CURRENT_VERSION || "4.3.0";
+    },
     GITHUB_URL: "https://github.com/allecsc/Stremio-Kai",
 
     // Full ISO-639-1 list - Sorted Alphabetically by Label, with English first
@@ -580,6 +582,18 @@
           ratingsContainer.classList.add("hidden");
         }
       }
+
+      // GLOBAL VISIBILITY: Hide entire "Preferences" section and Footer if NO keys are present
+      const prefsContainer = document.getElementById("kai-prefs-container");
+      const footerWrapper = document.getElementById("kai-footer-wrapper");
+      const anyKey = hasTmdb || hasMdblist;
+
+      if (prefsContainer) {
+        prefsContainer.style.display = anyKey ? "block" : "none";
+      }
+      if (footerWrapper) {
+        footerWrapper.style.display = anyKey ? "block" : "none";
+      }
     },
 
     // Inject Styles for Dropdown Visibility
@@ -660,6 +674,7 @@
       // Footer
       const footer = document.createElement("div");
       footer.className = "wrapper-FMNA6";
+      footer.id = "kai-footer-wrapper";
 
       footer.innerHTML = `<div class="footer-jhua_ kai-api-keys-footer"><div class="description-label-h5DXc kai-info-note">${this.ICONS.NOTE} <span><strong>Note:</strong> Preference changes apply to new items. Clear cache to refresh existing items.</span></div></div>`;
       section.appendChild(footer);

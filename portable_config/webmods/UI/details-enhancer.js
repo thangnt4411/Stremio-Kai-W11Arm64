@@ -207,9 +207,9 @@
    */
   class MetadataInjector {
     static clearInjectedContent() {
-      // 1. Remove specifically injected section elements
+      // 1. Remove specifically injected section elements (these are OUR elements, safe to remove)
       const sections = document.querySelectorAll(
-        `.${CONFIG.RATINGS_CLASS}, .${CONFIG.GENRES_CLASS}, .${CONFIG.CAST_SECTION_CLASS}, .show-page-tagline, .show-page-meta-row`,
+        `.${CONFIG.RATINGS_CLASS}, .${CONFIG.GENRES_CLASS}, .${CONFIG.CAST_SECTION_CLASS}, .show-page-tagline, .show-page-meta-row, .show-page-injected-plot`,
       );
       sections.forEach((el) => el.remove());
 
@@ -217,12 +217,32 @@
       const networkBadges = document.querySelectorAll(".show-page-network");
       networkBadges.forEach((el) => el.remove());
 
+      // 1b. Restore React-managed elements we hid (instead of removed)
+      // This reverses the hiding done in injectMetadata to keep React's DOM in sync.
+      document.querySelectorAll("[data-kai-hidden]").forEach((el) => {
+        delete el.dataset.kaiHidden;
+        el.style.removeProperty("display");
+      });
+
+      // 1c. Restore stashed text node content
+      const metaContainer = document.querySelector(CONFIG.META_CONTAINER);
+      if (metaContainer) {
+        const desc = metaContainer.querySelector(
+          ".description-container-yi8iU",
+        );
+        if (desc) {
+          desc.childNodes.forEach((child) => {
+            if (child.nodeType === 3 && child._kaiOriginalText != null) {
+              child.textContent = child._kaiOriginalText;
+              delete child._kaiOriginalText;
+            }
+          });
+        }
+      }
+
       // 2. Clear marker class from any containers but DON'T remove the container itself
       const marked = document.querySelectorAll(`.${CONFIG.MARKER_CLASS}`);
       marked.forEach((el) => el.classList.remove(CONFIG.MARKER_CLASS));
-
-      // 3. Restore hidden native elements (optional, but good practice if we want a clean state)
-      // Native elements are hidden via CSS !important, so no JS restoration needed usually.
 
       if (sections.length || marked.length) {
         console.log(
@@ -463,31 +483,54 @@
         replaced++;
       }
 
-      // Cleanup
-      if (imdbButton) imdbButton.remove();
+      // Cleanup: HIDE React-managed elements instead of removing them.
+      // Removing breaks React's fiber tree → removeChild crash on navigation.
+      if (imdbButton) {
+        imdbButton.dataset.kaiHidden = "true";
+        imdbButton.style.setProperty("display", "none", "important");
+      }
 
       // 4. Plot / Description Replacement
+      // HIDE React's children instead of destroying them via textContent.
       if (
         description &&
         (metadata.plot || metadata.overview || metadata.description)
       ) {
         const plotText =
           metadata.plot || metadata.overview || metadata.description;
-        // Keep the Label if it exists inside
         const existingLabel = description.querySelector(
           ".label-container-_VXZt",
         );
 
-        description.textContent = plotText;
+        // Hide React's existing children (preserve for React's unmount)
+        Array.from(description.childNodes).forEach((child) => {
+          if (child.nodeType === 1 && child !== existingLabel) {
+            // Element node — hide it
+            child.dataset.kaiHidden = "true";
+            child.style.setProperty("display", "none", "important");
+          } else if (child.nodeType === 3) {
+            // Text node — stash content and clear visually
+            child._kaiOriginalText = child.textContent;
+            child.textContent = "";
+          }
+        });
 
-        // Restore label if it was wiped
+        // Add our plot text as a new element
+        const plotSpan = document.createElement("span");
+        plotSpan.className = "show-page-injected-plot";
+        plotSpan.textContent = plotText;
         if (existingLabel) {
-          description.insertBefore(existingLabel, description.firstChild);
+          existingLabel.after(plotSpan);
+        } else {
+          description.prepend(plotSpan);
         }
         replaced++;
       }
 
-      metaLinksSections.forEach((s) => s.remove());
+      metaLinksSections.forEach((s) => {
+        s.dataset.kaiHidden = "true";
+        s.style.setProperty("display", "none", "important");
+      });
 
       if (genresWrapper) {
         if (description) {
@@ -899,29 +942,37 @@
       if (!routeInfo || !routeInfo.id) return;
 
       if (routeInfo.id === id || routeInfo.id === imdb) {
-        console.log(
-          `[Show Page Enhancer] Received metadata update for active item: ${id}`,
-        );
+        // FIX: Defer DOM mutations to next frame to avoid colliding with React's
+        // reconciler during navigation transitions. Without this, clearInjectedContent()
+        // can .remove() nodes that React is mid-unmount on, causing an uncaught
+        // removeChild NotFoundError that kills the render loop (black screen freeze).
+        requestAnimationFrame(() => {
+          // Re-validate route — user may have navigated away during the frame delay
+          const currentRoute = RouteDetector.extractFromHash();
+          if (
+            !currentRoute ||
+            (currentRoute.id !== id && currentRoute.id !== imdb)
+          )
+            return;
 
-        // Force re-process
-        // We clear current metadata to force a fresh lookup
-        this.currentMetadata = null;
+          console.log(
+            `[Show Page Enhancer] Received metadata update for active item: ${id}`,
+          );
 
-        // Clear existing injection so it can be replaced
-        // Note: processRoute will eventually call identifyAndPrepare which does usage lookup
-        // But we need to make sure injectIfReady proceeds.
+          // Force re-process — clear current metadata to force a fresh lookup
+          this.currentMetadata = null;
 
-        const container = document.querySelector(CONFIG.META_CONTAINER);
-        if (container) {
-          // Remove marker to allow re-injection
-          container.classList.remove(CONFIG.MARKER_CLASS);
-          // Also clean up content to prevent duplication before new content arrives
-          // actually injectMetadata calls clearInjectedContent, but let's be safe
-          MetadataInjector.clearInjectedContent();
-        }
+          const container = document.querySelector(CONFIG.META_CONTAINER);
+          if (container) {
+            // Remove marker to allow re-injection
+            container.classList.remove(CONFIG.MARKER_CLASS);
+            // Clean up content to prevent duplication before new content arrives
+            MetadataInjector.clearInjectedContent();
+          }
 
-        // Trigger processing
-        this.processRoute(true); // force=true
+          // Trigger processing
+          this.processRoute(true); // force=true
+        });
       }
     }
 
@@ -983,6 +1034,24 @@
             } else {
               this.processRoute();
             }
+          }
+
+          // 2b. Post-injection native element sweep.
+          // Slow addons can trigger a React re-render of the container AFTER our
+          // injection has already set the marker. The re-render inserts fresh DOM
+          // nodes (new .meta-links-Xiao3, new .imdb-button-container-gGjxp, etc.)
+          // without data-kai-hidden. We sweep for any visible native elements on
+          // each debounce cycle and hide them on sight.
+          if (container && container.classList.contains(CONFIG.MARKER_CLASS)) {
+            container
+              .querySelectorAll(
+                `.imdb-button-container-gGjxp:not([data-kai-hidden]),
+                 ${CONFIG.EXISTING_GENRES}:not([data-kai-hidden])`,
+              )
+              .forEach((el) => {
+                el.dataset.kaiHidden = "true";
+                el.style.setProperty("display", "none", "important");
+              });
           }
 
           // 3. Delegate to EpisodeInjector
@@ -1253,7 +1322,32 @@
         return;
       }
 
-      // 6. Proceed with full injection (Movies, Series Detail, and now Series Streams)
+      // 6. DOM Readiness Gate — wait until key elements have rendered.
+      // Logo/placeholder: needed for correct insertion anchor.
+      // Description with content: reliable signal that the container is fully
+      // rendered. Avoids injecting before React has finished populating children,
+      // which caused the IMDb button (and logo) to appear after our rows.
+      const logoReady = !!container.querySelector(CONFIG.LOGO_IMAGE);
+      const logoPlaceholderReady = !!container.querySelector(
+        ".logo-placeholder-rE1ld",
+      );
+      if (!logoReady && !logoPlaceholderReady) {
+        // Logo not present yet — DOM not stable, let observer retry
+        return;
+      }
+
+      // Description with text = container fully rendered.
+      // Some titles have no IMDb button at all, so we cannot use it as a
+      // readiness signal — but a populated description proves the container
+      // skeleton is done.  If description text is absent we retry next mutation.
+      const descEl = container.querySelector(".description-container-yi8iU");
+      const descReady = descEl && descEl.textContent.trim().length > 0;
+      if (!descReady) {
+        // Description not populated yet — let observer retry
+        return;
+      }
+
+      // 7. Proceed with full injection (Movies, Series Detail, and now Series Streams)
       // Container isolation via setContainerState() handles interactivity safely
       const routeState = RouteDetector.getRouteState();
       const type = this.currentMetadata.type || routeState.type;

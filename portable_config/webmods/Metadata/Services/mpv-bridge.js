@@ -83,6 +83,9 @@
       window.MpvSettings?.getUltrawideZoom?.() ||
       localStorage.getItem("kai-ultrawide-zoom") === "true"; // Default false
 
+    // v2.3 - Audio Preset (new)
+    const audioPreset = localStorage.getItem("kai-audio-preset") || "off";
+
     const metadata = JSON.stringify({
       is_anime: isAnime,
       detection_reason: reason,
@@ -98,6 +101,7 @@
       osd_profile_messages: osdProfileMessages,
       vulkan_mode: vulkanMode,
       ultrawide_zoom: ultrawideZoom,
+      audio_preset: audioPreset,
     });
 
     sendToMpv("script-message-to", [
@@ -106,7 +110,7 @@
       metadata,
     ]);
     console.log(
-      `[MPV Bridge] Sent: ${imdbId} → anime:${isAnime}, type:${contentType}, HDR:${hdrPassthrough}, peak:${targetPeak}, shaders:${shaderPreset}, SVP:${svpEnabled}, Color:${colorProfile}, ICC:${iccProfile}, OSD:${osdProfileMessages}, Vulkan:${vulkanMode}, Ultrawide:${ultrawideZoom}`,
+      `[MPV Bridge] Sent: ${imdbId} → anime:${isAnime}, Type:${contentType}, Audio:${audioPreset}, HDR:${hdrPassthrough} (Peak:${targetPeak}), Shaders:${shaderPreset}, SVP:${svpEnabled}, Color:${colorProfile}, ICC:${iccProfile}, Ultrawide:${ultrawideZoom}`,
     );
   }
 
@@ -132,7 +136,7 @@
   /**
    * Send Smart Track Selector config to mpv
    */
-  function sendTrackSelectorConfig() {
+  function sendTrackSelectorConfig(retryCount = 0) {
     // 1. Get Stremio Native Settings (localProfile)
     let localProfile = {};
     try {
@@ -145,7 +149,21 @@
     // 2. Get Custom Settings (from mpv-settings.js)
     const customConfig = window.MpvSettings?.getSmartTrackConfig?.() || {};
 
-    // 3. Map Data
+    // 3. Retry logic: If critical custom fields are empty, retry
+    const hasCustomConfig =
+      customConfig.audio_reject_keywords?.length > 0 ||
+      customConfig.sub_reject_keywords?.length > 0 ||
+      customConfig.audio_reject_langs?.length > 0;
+
+    if (!hasCustomConfig && retryCount < 2) {
+      console.log(
+        `[MPV Bridge] Custom config empty, retrying... (${retryCount + 1}/2)`,
+      );
+      setTimeout(() => sendTrackSelectorConfig(retryCount + 1), 50);
+      return;
+    }
+
+    // 4. Map Data
     // Stremio saves langs as arrays ["jpn", "eng"], Lua wants comma-separated string "jpn,eng"
     // We strictly expand these using our ISO list to ensure Lua gets "eng,en,english" etc.
     const expand = window.MpvSettings?.expandLanguage || ((c) => c);
@@ -183,7 +201,9 @@
     });
 
     sendToMpv("script-message", ["track-selector-config", payload]);
-    console.log("[MPV Bridge] Sent track selector config");
+    console.log(
+      `[MPV Bridge] Sent track selector config (retry=${retryCount})`,
+    );
   }
 
   function sendNotifySkipConfig() {

@@ -1,10 +1,21 @@
 --[[
   @name Profile Manager
   @description Hybrid profile system: static base profiles + dynamic layers
-  @version 7.1
+  @version 7.3
   @author allecsc
   
   @changelog
+    v7.3 - AUDIO REVOLUTION (Audiophile Standard):
+           - Removed ALL dynamic range compression (loudnorm/acompressor).
+           - Removed Content Type split (Anime vs Cinema).
+           - Added "Night Mode" (Highpass 70Hz + Lowpass 13kHz + Speech Lift).
+           - Added "Voice Clarity" (Dual-band Speech Bias).
+           - Default is "Reference" (Bit-perfect passthrough).
+    v7.2 - AUDIO & LATCH REFACTOR:
+           - Audio: Default mode is now "Off" (Vanilla).
+           - Audio: "Night Mode" redesigned (Removed loudnorm, added EQ/Compression).
+           - Latch: Strict Parameter Validation (Wait for Primaries/Gamma/Colormatrix).
+           - Latch: "Smart Reset" (Freshness check) fixes race condition.
     v7.1 - Added Ultrawide Zoom support (panscan toggle via Stremio metdata)
     v7.0 - ARCHITECTURE REFACTOR: Hybrid static+dynamic approach
            - Base profiles (sdr, anime-sdr) in mpv.conf contain only static settings
@@ -138,17 +149,18 @@ local VF_FILTERS = {
     svp = '@SVP:vapoursynth="~~/svp_main.vpy":buffered-frames=8:concurrent-frames=16'
 }
 
--- Audio Presets
+-- Audio Presets (Audiophile / Non-Destructive)
 local AUDIO_FILTERS = {
-    NIGHT  = "@NIGHT:lavfi=[loudnorm=I=-16:TP=-3:LRA=4,acompressor=threshold=0.0625:ratio=4:attack=5:release=300:makeup=1,highpass=f=100,lowpass=f=16000]",
-    CINEMA = "@CINEMA:lavfi=[loudnorm=I=-16:TP=-1.5:LRA=20]",
-    ANIME  = "@ANIME:lavfi=[loudnorm=I=-16:TP=-1.5:LRA=15]"
+    -- Night Mode: Aggressive bass cut (120Hz), highs tamed (10kHz), voice boost (+6dB @ 2kHz, Q=2)
+    NIGHT = "@NIGHT:lavfi=[highpass=f=120,lowpass=f=10000,equalizer=f=2000:width_type=q:width=2:g=6]",
+    
+    -- Voice Clarity: Strong intelligibility boost (+8dB @ 2kHz, +6dB @ 4kHz, Q=2)
+    VOICE = "@VOICE:lavfi=[highpass=f=80,equalizer=f=2000:width_type=q:width=2:g=8,equalizer=f=4000:width_type=q:width=2:g=6]"
 }
 
 -- Audio Cycle State
 local audio_state = {
-    mode = "std", -- "std" (Default), "night", "off"
-    is_anime = false
+    mode = "off" -- "off" (Default), "night", "voice"
 }
 
 -- ═══════════════════════════════════════════════════════════════════════════
@@ -159,14 +171,22 @@ local function log(str)
     mp.msg.info("[profile-manager] " .. str)
 end
 
-local profile_applied_for_this_file = false
-local observer_registered = false
-local detection_reason = "None"
+-- Latch State
+local state = {
+    profile_applied = false,
+    video_params_ready = false,
+    metadata_ready = false,
+    params_cache = nil
+}
 
--- Stremio metadata bridge (receives cached isAnime from mpv-bridge.js)
-local stremio_metadata = nil
 local utils = require("mp.utils")
+local stremio_metadata = nil
 
+
+-- Forward declaration
+local try_execute_profile
+
+-- Stremio metadata bridge
 mp.register_script_message("anime-metadata", function(json_str)
     stremio_metadata = utils.parse_json(json_str)
     if stremio_metadata then
@@ -176,16 +196,22 @@ mp.register_script_message("anime-metadata", function(json_str)
             ", hdr=" .. tostring(stremio_metadata.hdr_passthrough) ..
             ", shaders=" .. tostring(stremio_metadata.shader_preset) ..
             ", svp=" .. tostring(stremio_metadata.svp_enabled) ..
+            ", osd=" .. tostring(stremio_metadata.osd_profile_messages) ..
             ", uw=" .. tostring(stremio_metadata.ultrawide_zoom))
             
-        -- Apply Ultrawide Zoom immediately (safe to do anytime)
+        state.metadata_ready = true
+        state.metadata_arrival = mp.get_time() -- Track arrival time to prevent race-condition wipes
+        
+        -- Immediate Ultrawide Zoom (safe anytime)
         if stremio_metadata.ultrawide_zoom then
             mp.set_property("panscan", "1.0")
             log("[Ultrawide] Zoom enabled (panscan=1.0)")
         else
-            -- Reset to default (0.0 means normal fit-to-screen with black bars)
             mp.set_property("panscan", "0.0")
         end
+        
+        -- TRIGGER LATCH
+        try_execute_profile()
     end
 end)
 
@@ -232,8 +258,6 @@ local function detect_hdr(video_params)
     return false
 end
 
-
-
 -- ═══════════════════════════════════════════════════════════════════════════
 -- DYNAMIC LAYER HELPER FUNCTIONS
 -- ═══════════════════════════════════════════════════════════════════════════
@@ -242,6 +266,9 @@ end
 -- Called at the START of every profile application to ensure clean slate
 local function apply_sdr_baseline()
     log("Applying SDR baseline (clean slate)")
+    
+    -- 0. Reset hwdec to safe default (prevents auto-copy from sticking)
+    mp.set_property("hwdec", "auto")
     
     -- 1. Reset Rendering Chains (prevents bleed-over without resetting global prefs like volume)
     mp.set_property("glsl-shaders", "")   -- Clear all shaders
@@ -376,64 +403,7 @@ local function matches_group(filename, group_list)
     return nil
 end
 
-function select_and_apply_profile(name, video_params)
-    if profile_applied_for_this_file then return end
 
-    -- Wait for video params to be fully loaded
-    -- HDR detection needs: primaries, gamma, colormatrix
-    -- Legacy detection needs: h, interlaced
-    if not video_params or not video_params.h then
-        return
-    end
-    
-    -- Wait for video params to be fully loaded
-    local primaries = video_params.primaries
-    local gamma = video_params.gamma
-    local colormatrix = video_params.colormatrix
-    
-    if not primaries or not gamma or not colormatrix then
-        return
-    end
-
-    log("--- Starting Profile Evaluation ---")
-    
-    -- Extract video info
-    local height = video_params.h
-    local is_interlaced = video_params.interlaced or false
-    local is_hdr = detect_hdr(video_params)
-    
-    -- Get filename for release group detection
-    local filename = get_filename()
-    
-    -- The Decision Logic (Tiered Approach)
-    local is_anime = false
-
-    -- TIER 0: Stremio Metadata (cached isAnime from DB)
-    if stremio_metadata and stremio_metadata.is_anime then
-        is_anime = true
-        detection_reason = "Stremio: " .. (stremio_metadata.detection_reason or "Unknown")
-        log("STREMIO MATCH: " .. detection_reason)
-    end
-
-    -- TIER 1: Known Anime Release Group (from filename)
-    if not is_anime then
-        local matched_group = matches_group(filename, opts.anime_release_groups)
-        if matched_group then
-            is_anime = true
-            detection_reason = "Release Group: " .. matched_group
-            log("TIER 1 MATCH: " .. detection_reason)
-        end
-    end
-
-    -- ANTI-TIER: Block detection if from Known General Release Group
-    -- Only logs for debugging, doesn't affect is_anime (which is already false)
-    if not is_anime then
-        local blocked_by = matches_group(filename, opts.general_release_groups)
-        if blocked_by then
-            log("ANTI-TIER: File from general group '" .. blocked_by .. "' - confirmed non-anime")
-            detection_reason = "Default (General group: " .. blocked_by .. ")"
-        end
-    end
 
 -- Visual Identity Application Function
 local current_visual_profile = "kai" -- Default tracking
@@ -444,7 +414,6 @@ local function apply_visual_settings(profile_name, icc_enabled, is_hdr_passthrou
     
     log("[Visuals] Applying Profile: " .. (current_visual_profile or "nil") .. ", ICC: " .. tostring(icc_enabled) .. ", HDR Passthrough: " .. tostring(is_hdr_passthrough))
 
-    -- 1. ICC Profile Logic
     -- 1. ICC Profile Logic
     -- FIXED: Force ICC OFF if HDR Passthrough is active (prevents override during cycling)
     if icc_enabled and not is_hdr_passthrough then
@@ -506,27 +475,21 @@ end)
 local function apply_audio_current()
     -- 1. Remove existing preset (by label) to avoid stacking or conflicts
     mp.commandv("af", "remove", "@NIGHT")
-    mp.commandv("af", "remove", "@CINEMA")
-    mp.commandv("af", "remove", "@ANIME")
+    mp.commandv("af", "remove", "@VOICE")
 
-    -- 2. Determine target filter based on state and content type
+    -- 2. Determine target filter based on state
     local target_filter = nil
-    local osd_name = "Off"
+    local osd_name = "Off (Pass-Through)"
 
     if audio_state.mode == "night" then
         target_filter = AUDIO_FILTERS.NIGHT
         osd_name = "Night Mode"
-    elseif audio_state.mode == "std" then
-        if audio_state.is_anime then
-            target_filter = AUDIO_FILTERS.ANIME
-            osd_name = "Anime"
-        else
-            target_filter = AUDIO_FILTERS.CINEMA
-            osd_name = "Cinema"
-        end
+    elseif audio_state.mode == "voice" then
+        target_filter = AUDIO_FILTERS.VOICE
+        osd_name = "Voice Clarity"
     else
         -- "off", do nothing (filter already removed)
-        osd_name = "Off"
+        osd_name = "Off (Pass-Through)"
     end
 
     -- 3. Apply if exists
@@ -538,50 +501,105 @@ local function apply_audio_current()
 end
 
 mp.register_script_message("cycle-audio-preset", function()
-    -- Cycle Logic: STD -> NIGHT -> OFF -> STD
-    if audio_state.mode == "std" then
+    -- Cycle Logic: OFF -> NIGHT -> VOICE -> OFF
+    if audio_state.mode == "off" then
         audio_state.mode = "night"
     elseif audio_state.mode == "night" then
-        audio_state.mode = "off"
+        audio_state.mode = "voice"
     else
-        audio_state.mode = "std"
+        audio_state.mode = "off"
     end
     
     local name = apply_audio_current()
-    mp.osd_message("Audio Preset: " .. name)
+    mp.osd_message("Audio: " .. name)
     log("[Audio] Cycled to: " .. name)
 end)
 
-    -- ═══════════════════════════════════════════════════════════════════════
-    -- HYBRID PROFILE SYSTEM: Base Profile + Dynamic Layers
-    -- ═══════════════════════════════════════════════════════════════════════
-    
-    -- HDR passthrough preference from Stremio settings
-    local hdr_passthrough = stremio_metadata and stremio_metadata.hdr_passthrough or false
-    
-    -- Legacy anime detection: interlaced SD content (≤576p)
-    local is_legacy_anime = is_anime and is_interlaced and height <= 576
-    
-    -- Shader preset from Stremio settings (default: "optimized")
-    local shader_preset = stremio_metadata and stremio_metadata.shader_preset or "optimized"
 
-    -- Color Profile (default: "kai")
-    local color_profile = stremio_metadata and stremio_metadata.color_profile or "kai"
+-- ═══════════════════════════════════════════════════════════════════════════
+-- MAIN EXECUTION LATCH
+-- ═══════════════════════════════════════════════════════════════════════════
+
+function try_execute_profile()
+    -- 1. Check Latch Conditions
+    if state.profile_applied then return end
     
-    -- ICC Profile Toggle (default: false/nil)
-    local icc_profile_enabled = stremio_metadata and stremio_metadata.icc_profile
+    if not state.video_params_ready then
+        -- Still waiting for MPV to analyze file
+        return 
+    end
     
-    -- SVP enabled from Stremio settings (default: true)
-    local svp_enabled = stremio_metadata and stremio_metadata.svp_enabled
+    if not state.metadata_ready then
+        -- Waiting for Stremio metadata (Strict Latch)
+        log("Latch: Waiting for Metadata...")
+        return
+    end
+    
+    -- 2. Lock Latch
+    state.profile_applied = true
+
+    
+    -- 3. Prepare Data
+    local video_params = state.params_cache
+    
+    log("--- Starting Profile Application ---")
+    log("Metadata Ready: " .. tostring(state.metadata_ready))
+    
+    -- Extract video info
+    local height = video_params.h
+    local is_interlaced = video_params.interlaced or false
+    local is_hdr = detect_hdr(video_params)
+    local filename = get_filename()
+    
+    -- The Decision Logic (Tiered Approach)
+    local is_anime = false
+    local detection_reason = "None"
+
+    -- TIER 0: Stremio Metadata
+    if stremio_metadata and stremio_metadata.is_anime then
+        is_anime = true
+        detection_reason = "Stremio: " .. (stremio_metadata.detection_reason or "Unknown")
+        log("STREMIO MATCH: " .. detection_reason)
+    end
+
+    -- TIER 1: Known Anime Release Group
+    if not is_anime then
+        local matched_group = matches_group(filename, opts.anime_release_groups)
+        if matched_group then
+            is_anime = true
+            detection_reason = "Release Group: " .. matched_group
+            log("TIER 1 MATCH: " .. detection_reason)
+        end
+    end
+
+    -- ANTI-TIER: Block detection if from Known General Release Group
+    if not is_anime then
+        local blocked_by = matches_group(filename, opts.general_release_groups)
+        if blocked_by then
+            log("ANTI-TIER: " .. blocked_by)
+            detection_reason = "Default (General group: " .. blocked_by .. ")"
+        end
+    end
+
+    -- ═══════════════════════════════════════════════════════════════════════
+    -- HYBRID PROFILE SYSTEM
+    -- ═══════════════════════════════════════════════════════════════════════
+    
+    -- Get preferences (safely handle nil if metadata never arrived)
+    local meta = stremio_metadata or {}
+    local hdr_passthrough = meta.hdr_passthrough or false
+    local shader_preset = meta.shader_preset or "optimized"
+    local color_profile = meta.color_profile or "kai"
+    local icc_profile_enabled = meta.icc_profile
+    local svp_enabled = meta.svp_enabled
     if svp_enabled == nil then svp_enabled = true end
-    
-    -- Target Peak from Stremio settings (default: "auto")
-    local target_peak = stremio_metadata and stremio_metadata.target_peak or "auto"
-    
-    -- Vulkan Mode from Stremio settings (default: false)
-    local vulkan_mode = stremio_metadata and stremio_metadata.vulkan_mode or false
+    local target_peak = meta.target_peak or "auto"
+    local vulkan_mode = meta.vulkan_mode or false
+
+    local is_legacy_anime = is_anime and is_interlaced and height <= 576
+
     if vulkan_mode then
-        log("Vulkan mode enabled by user preference")
+        log("Vulkan mode enabled")
         mp.set_property("gpu-api", "vulkan")
         mp.set_property("vulkan-async-compute", "yes")
         mp.set_property("vulkan-async-transfer", "yes")
@@ -590,40 +608,30 @@ end)
     -- Determine base profile
     local base_profile = is_anime and "anime-sdr" or "sdr"
     
-    -- Build OSD message dynamically
+    -- Build OSD message
     local osd_parts = {}
     if is_anime then
         table.insert(osd_parts, "Anime")
-        if is_legacy_anime then
-            table.insert(osd_parts, "Legacy")
-            detection_reason = detection_reason .. " + Interlaced"
-        end
+        if is_legacy_anime then table.insert(osd_parts, "Legacy") end
     else
         table.insert(osd_parts, "Cinema")
-        detection_reason = "Default (No Anime Detected)"
     end
     if is_hdr then
-        if hdr_passthrough then
-            table.insert(osd_parts, "HDR")
-        else
-            table.insert(osd_parts, "HDR→SDR")
-        end
+        table.insert(osd_parts, hdr_passthrough and "HDR" or "HDR→SDR")
     end
     
+    -- APPLY
     log("--- FINAL DECISION ---")
     log("Reason: " .. detection_reason)
     log("HDR Status: " .. tostring(is_hdr) .. ", Passthrough: " .. tostring(hdr_passthrough))
     log("Resolution: " .. tostring(height) .. "p")
     log("Legacy Anime: " .. tostring(is_legacy_anime))
-    
-    -- STEP 0: Reset colorspace to clean SDR baseline (prevents HDR state bleeding)
+
     apply_sdr_baseline()
     
-    -- STEP 1: Apply base profile
-    log("Applying base profile: " .. base_profile)
+    log("Applying base: " .. base_profile)
     mp.commandv("apply-profile", base_profile)
     
-    -- STEP 2: Apply HDR layer (mutually exclusive)
     local is_passthrough_active = false
     if is_hdr then
         if hdr_passthrough then
@@ -634,87 +642,87 @@ end)
         end
     end
     
-    -- STEP 3: Apply Visual Identity (Color & ICC)
-    -- Logic: Default to "Original" for HDR Passthrough, but allow user overrides later
     if is_passthrough_active then
         color_profile = "original"
-        log("HDR Passthrough active: Defaulting to 'original' color profile (User can override)")
+        log("HDR Passthrough: Forcing 'original' colors")
     end
     
     apply_visual_settings(color_profile, icc_profile_enabled, is_passthrough_active, false)
     
-    -- STEP 4: Apply anime-specific layers
     if is_anime then
-        -- Apply shaders only if preset is not "none"
         if shader_preset ~= "none" then
             apply_anime_shaders(shader_preset, is_legacy_anime, is_hdr and hdr_passthrough)
-        else
-            log("Shaders disabled (preset: none)")
         end
         apply_anime_vf(is_legacy_anime, svp_enabled)
     end
 
-    -- STEP 5: Apply Audio Defaults (Context Aware)
-    audio_state.is_anime = is_anime
-    audio_state.mode = "std" -- Always reset to standard (appropriate default) on file load
+    audio_state.mode = meta.audio_preset or "off"
     apply_audio_current()
     
-    -- STEP 5.5: Enable hwdec=auto-copy for SERIES (required for VF-based intro detection)
-    -- Note: This is required for filters (SVP/Blackdetect) to see frames.
-    local content_type = stremio_metadata and stremio_metadata.content_type or "unknown"
+    -- Series hwdec check
+    local content_type = meta.content_type or "unknown"
     if content_type == "series" then
         mp.set_property("hwdec", "auto-copy")
-        log("Series detected: Enabled hwdec=auto-copy for VF-data access")
+        log("Series detected: enabled hwdec=auto-copy")
     end
     
-    -- STEP 6: Set OSD message dynamically (respect user preference)
-    local show_osd_profile = stremio_metadata and stremio_metadata.osd_profile_messages
-    if show_osd_profile == nil then show_osd_profile = true end -- Default true
+    -- OSD
+    local show_osd = meta.osd_profile_messages
+    if show_osd == nil then show_osd = true end
     
-    local osd_msg = "• " .. table.concat(osd_parts, " • ") .. " •"
-    if show_osd_profile then
+    if show_osd then
+        local osd_msg = "• " .. table.concat(osd_parts, " • ") .. " •"
         mp.set_property("osd-playing-msg", osd_msg)
-        log("OSD message: " .. osd_msg)
+        mp.osd_message(osd_msg, 3)
     else
         mp.set_property("osd-playing-msg", "")
-        log("OSD profile messages disabled by user")
     end
     
-    profile_applied_for_this_file = true
-    
-    -- Unregister the observer once profile is applied
-    mp.unobserve_property(select_and_apply_profile)
-    observer_registered = false
-    log("Profile and dynamic layers applied. Observer unregistered.")
+    log("Profile applied successfully.")
 end
 
--- Use a self-unregistering observer to wait for metadata (crucial for streams)
-mp.observe_property('video-params', 'native', select_and_apply_profile)
-observer_registered = true
 
--- Reset the flag when a new file is loaded
-mp.register_event('start-file', function()
-    -- =======================================================================
-    -- LIST CLEARS ONLY: mpv.conf has reset-on-next-file=all for scalar options
-    -- Use change-list for lists as failsafe (most reliable method)
-    -- =======================================================================
-    
-    mp.commandv("change-list", "glsl-shaders", "clr", "")
-    mp.commandv("change-list", "vf", "clr", "")
-    mp.commandv("change-list", "af", "clr", "")
-    
-
-    
-
-    
-    log("Lists cleared. Waiting for profile selection...")
-    
-    profile_applied_for_this_file = false
-    detection_reason = "None"
-    
-    -- Only register if not already registered (prevents observer leak)
-    if not observer_registered then
-        mp.observe_property('video-params', 'native', select_and_apply_profile)
-        observer_registered = true
+-- Observer for video-params (Phase 1 of Latch)
+mp.observe_property('video-params', 'native', function(_, params)
+    -- STRICT VALIDATION: Ignore partial updates.
+    -- We must have ALL components needed by detect_hdr before burning the latch.
+    if not params or 
+       not params.primaries or 
+       not params.gamma or 
+       not params.colormatrix then 
+        return 
     end
+    
+    -- Cache params for execution
+    state.params_cache = params
+    state.video_params_ready = true
+    
+    -- TRIGGER LATCH
+    try_execute_profile()
+end)
+
+
+-- Reset state on new file
+mp.register_event('start-file', function()
+    -- Clear previous state
+    state.profile_applied = false
+    state.video_params_ready = false
+    state.params_cache = nil
+    
+    -- Clear stale OSD from previous session
+    mp.set_property("osd-playing-msg", "")
+    
+    -- Smart Metadata Clear: Only clear if it didn't just arrive
+    -- This fixes the race condition where metadata arrives milliseconds before start-file
+    local now = mp.get_time()
+    local arrival = state.metadata_arrival or 0
+    if state.metadata_ready and (now - arrival < 2.0) then
+        log("Preserving fresh metadata received " .. string.format("%.3f", now - arrival) .. "s ago")
+        -- Keep stremio_metadata and state.metadata_ready = true
+    else
+        state.metadata_ready = false
+        stremio_metadata = nil
+    end
+    
+    log("State reset. Waiting for latch (params + metadata)...")
 end)
