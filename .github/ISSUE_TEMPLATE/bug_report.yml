@@ -21,18 +21,18 @@ body:
       label: Display resolution
       description: Select the display resolution where the issue occurred. If your resolution is not listed, choose "Other" and provide details below.
       options:
-        - 3840x2160 (4K / UHD)
-        - 3440x1440 (UltraWide)
-        - 2560x1440 (1440p / QHD)
-        - 2560x1080 (UltraWide 1080p)
+        - 3840x2160
+        - 3440x1440
+        - 2560x1440
+        - 2560x1080
         - 1920x1200
-        - 1920x1080 (1080p / FHD)
+        - 1920x1080
         - 1680x1050
         - 1600x900
         - 1536x864
         - 1440x900
         - 1366x768
-        - 1280x720 (720p / HD)
+        - 1280x720
         - Other (please specify)
     validations:
       required: true
@@ -40,7 +40,7 @@ body:
     id: resolution-other
     attributes:
       label: If Other, specify resolution
-      description: Example: 1792x828, 3024x1964, etc.
+      description: "Example: 1792x828, 3024x1964, etc."
       placeholder: e.g. 1792x828
     validations:
       required: false
@@ -65,7 +65,7 @@ body:
     id: scale-other
     attributes:
       label: If Other, specify scale
-      description: Example: 110%, 140%, custom scale (enter numeric percent)
+      description: "Example: 110%, 140%, custom scale (enter numeric percent)"
       placeholder: e.g. 110%
     validations:
       required: false
