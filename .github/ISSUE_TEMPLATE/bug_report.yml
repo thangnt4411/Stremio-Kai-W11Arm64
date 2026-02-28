@@ -15,6 +15,60 @@ body:
       placeholder: Tell us what you see!
     validations:
       required: true
+  - type: dropdown
+    id: resolution
+    attributes:
+      label: Display resolution
+      description: Select the display resolution where the issue occurred. If your resolution is not listed, choose "Other" and provide details below.
+      options:
+        - 3840x2160 (4K / UHD)
+        - 3440x1440 (UltraWide)
+        - 2560x1440 (1440p / QHD)
+        - 2560x1080 (UltraWide 1080p)
+        - 1920x1200
+        - 1920x1080 (1080p / FHD)
+        - 1680x1050
+        - 1600x900
+        - 1536x864
+        - 1440x900
+        - 1366x768
+        - 1280x720 (720p / HD)
+        - Other (please specify)
+    validations:
+      required: true
+  - type: input
+    id: resolution-other
+    attributes:
+      label: If Other, specify resolution
+      description: Example: 1792x828, 3024x1964, etc.
+      placeholder: e.g. 1792x828
+    validations:
+      required: false
+  - type: dropdown
+    id: scale
+    attributes:
+      label: Windows display scale
+      description: Select the Windows display scaling setting used. If your scale is not listed, choose "Other" and provide details below.
+      options:
+        - 100%
+        - 125%
+        - 150%
+        - 175%
+        - 200%
+        - 225%
+        - 250%
+        - 300%
+        - Other (please specify)
+    validations:
+      required: true
+  - type: input
+    id: scale-other
+    attributes:
+      label: If Other, specify scale
+      description: Example: 110%, 140%, custom scale (enter numeric percent)
+      placeholder: e.g. 110%
+    validations:
+      required: false
   - type: textarea
     id: pc-specs
     attributes:
@@ -25,15 +79,11 @@ body:
         - GPU:
         - RAM:
         - OS Version:
-        - Resolution:
-        - Scale:
       placeholder: |
         CPU: AMD Ryzen 5 5600X
         GPU: NVIDIA RTX 3070
         RAM: 16GB
         OS: Windows 11
-        Resolution: 1920x1080
-        Scale: 100%
     validations:
       required: true
   - type: markdown
