@@ -98,15 +98,19 @@ Stremio Kai is a completely self-contained, portable system. All dependencies—
 **Option 2: Portable Archive**
 1. Download the **Stremio-Kai.7z** archive from the [Releases Page](https://github.com/allecsc/Stremio-Kai/releases/latest)
 2. Extract the entire contents of the `.7z` archive
-   > [!CAUTION]
-   > To avoid Windows permission issues, **do not** extract to `C:\Program Files\`. Use a user-writeable directory such as `C:\Stremio-Kai` or any location on a non-system drive (e.g., `D:\Apps\Stremio-Kai`).
-3. Double-click `stremio.exe`. Log in to your account and enjoy the premium experience.
+
+> [!CAUTION]
+> To avoid Windows permission issues, **do not** extract to `C:\Program Files\`. Use a user-writeable directory such as `C:\Stremio-Kai` or any location on a non-system drive (e.g., `D:\Apps\Stremio-Kai`).
+  
+4. Double-click `stremio.exe`. Log in to your account and enjoy the premium experience.
 
 ### 🔧 Configuration & Usage:
 * **🔌 Plug-and-Play:** Scripts and configurations are custom-tuned to work out of the box. No manual setup is required.
 * **⚙️ UI-First Settings:** All customization options are now accessible through the Settings page—no need to edit config files.
 * **🔬 Advanced Customization:** While default settings are optimized for 99% of users, advanced users can still modify `.conf` files within the internal folders if needed.
-  > **Note:** Only perform manual modifications if you have consulted the [Wiki Documentation](https://github.com/allecsc/Stremio-Kai/wiki/) and understand how to do it. Most settings are now better managed through the UI.
+
+> [!NOTE]
+> Only perform manual modifications if you have consulted the [Wiki Documentation](https://github.com/allecsc/Stremio-Kai/wiki/) and understand how to do it. Most settings are now better managed through the UI.
 
 ### 📦 Build Information:
 Starting with v4.0, **Stremio Kai Zero is no longer distributed as a separate build**. All features are now toggleable within the Settings page, allowing you to customize your experience from minimal to feature-rich without needing separate downloads.
