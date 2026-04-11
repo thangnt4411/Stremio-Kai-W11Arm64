@@ -90,7 +90,7 @@ Stremio Kai is a completely self-contained, portable system. All dependencies—
 
 ### Installation Methods
 
-**Option 1: Installer (New!)**
+**Option 1: Installer (Recommended!)**
 1. Download the **Stremio-Kai-Installer.exe** from the [Releases Page](https://github.com/allecsc/Stremio-Kai/releases/latest)
 2. Run the installer and follow the guided setup
 3. Launch Stremio Kai from Start Menu or Desktop shortcut
@@ -99,6 +99,16 @@ Stremio Kai is a completely self-contained, portable system. All dependencies—
 1. Download the **Stremio-Kai.7z** archive from the [Releases Page](https://github.com/allecsc/Stremio-Kai/releases/latest)
 2. Extract the entire contents of the `.7z` archive
 
+**Option 3: Winget (New!)**
+    ```shell
+    # Install
+    winget install Allecsc.StremioKai
+    # Update
+    winget upgrade Allecsc.StremioKai
+    # Uninstall
+    winget uninstall Allecsc.StremioKai
+    ```
+    
 > [!CAUTION]
 > To avoid Windows permission issues, **do not** extract to `C:\Program Files\`. Use a user-writeable directory such as `C:\Stremio-Kai` or any location on a non-system drive (e.g., `D:\Apps\Stremio-Kai`).
   
