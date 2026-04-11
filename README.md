@@ -100,15 +100,15 @@ Stremio Kai is a completely self-contained, portable system. All dependencies—
 2. Extract the entire contents of the `.7z` archive
 
 **Option 3: Winget (New!)**
-    ```shell
-    # Install
-    winget install Allecsc.StremioKai
-    # Update
-    winget upgrade Allecsc.StremioKai
-    # Uninstall
-    winget uninstall Allecsc.StremioKai
-    ```
-    
+      ```shell
+      # Install
+      winget install Allecsc.StremioKai
+      # Update
+      winget upgrade Allecsc.StremioKai
+      # Uninstall
+      winget uninstall Allecsc.StremioKai
+      ```
+
 > [!CAUTION]
 > To avoid Windows permission issues, **do not** extract to `C:\Program Files\`. Use a user-writeable directory such as `C:\Stremio-Kai` or any location on a non-system drive (e.g., `D:\Apps\Stremio-Kai`).
   
