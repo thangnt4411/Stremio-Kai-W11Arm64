@@ -100,7 +100,7 @@ Stremio Kai is a completely self-contained, portable system. All dependencies—
 2. Extract the entire contents of the `.7z` archive
 
 **Option 3: Winget (New!)**
-      ```shell
+        ```shell
       # Install
       winget install Allecsc.StremioKai
       # Update
