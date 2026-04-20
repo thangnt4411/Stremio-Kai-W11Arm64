@@ -265,6 +265,9 @@ mp.observe_property('osd-dimensions', 'native', update_display_dimensions)
 -- Register key binding
 mp.add_key_binding('Tab', 'perform_skip', skip_executor.perform_skip)
 
+-- Allow the web overlay to trigger skip (mouse clicks can't reach mpv directly)
+mp.register_script_message("perform-skip", skip_executor.perform_skip)
+
 -- Handler for content metadata from mpv-bridge.js
 mp.register_script_message("content-metadata", function(json)
     local data = utils.parse_json(json)
