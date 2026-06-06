@@ -130,11 +130,11 @@ body.hero-active .board-container-DTN_b .board-content-container-ToQTz .board-co
 }
 
 
-[class*="meta-item-container-"] [class*="poster-container-"] [class*="poster-image-layer-"] [class*="poster-image-"]:hover {
+[class*="meta-item-container-"] [class*="poster-container-"] [class*="poster-image-layer-"] img[class*="poster-image-"]:hover {
 	filter: brightness(100%) saturate(105%);
 }
 
-[class*="meta-item-container-"] [class*="poster-container-"] [class*="poster-image-layer-"] [class*="poster-image-"] {
+[class*="meta-item-container-"] [class*="poster-container-"] [class*="poster-image-layer-"] img[class*="poster-image-"] {
 	object-fit: cover;
     opacity: 1;
 	filter: brightness(90%);

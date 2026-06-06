@@ -39,7 +39,7 @@
 =============================================*/
 
 [class*="meta-item-container-"] [class*="poster-container-"],
-[class*="meta-item-container-"] [class*="poster-image-"] {
+[class*="meta-item-container-"] img[class*="poster-image-"] {
     position: relative !important; /* ensure overlay absolutely positions over poster */
 }
 
