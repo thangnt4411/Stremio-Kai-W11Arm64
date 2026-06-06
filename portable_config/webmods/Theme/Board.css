@@ -103,11 +103,11 @@ body.hero-active .board-container-DTN_b .board-content-container-ToQTz .board-co
 
 
 /* Poster container - Gap between items */
-.meta-item-container-Tj0Ib {
+[class*="meta-item-container-"] {
 	padding: 0.03rem;
 }
 
-.meta-item-container-Tj0Ib .poster-container-qkw48 {
+[class*="meta-item-container-"] [class*="poster-container-"] {
 	position: relative;
 	z-index: unset;
 	background-color: unset;
@@ -120,7 +120,7 @@ body.hero-active .board-container-DTN_b .board-content-container-ToQTz .board-co
 	transition: all 0.3s ease-out;
 }
 
-.meta-item-container-Tj0Ib:hover .poster-container-qkw48, .meta-item-container-Tj0Ib:focus .poster-container-qkw48, .meta-item-container-Tj0Ib.active .poster-container-qkw48, .meta-item-container-Tj0Ib.selected .poster-container-qkw48 {
+[class*="meta-item-container-"]:hover [class*="poster-container-"], [class*="meta-item-container-"]:focus [class*="poster-container-"], [class*="meta-item-container-"].active [class*="poster-container-"], [class*="meta-item-container-"].selected [class*="poster-container-"] {
 	z-index: 10;
 
 	box-shadow: 0 8px 20px rgb(0, 0, 0, 1);
@@ -130,11 +130,11 @@ body.hero-active .board-container-DTN_b .board-content-container-ToQTz .board-co
 }
 
 
-.meta-item-container-Tj0Ib .poster-container-qkw48 .poster-image-layer-KimPZ .poster-image-NiV7O:hover {
+[class*="meta-item-container-"] [class*="poster-container-"] [class*="poster-image-layer-"] [class*="poster-image-"]:hover {
 	filter: brightness(100%) saturate(105%);
 }
 
-.meta-item-container-Tj0Ib .poster-container-qkw48 .poster-image-layer-KimPZ .poster-image-NiV7O {
+[class*="meta-item-container-"] [class*="poster-container-"] [class*="poster-image-layer-"] [class*="poster-image-"] {
 	object-fit: cover;
     opacity: 1;
 	filter: brightness(90%);
@@ -142,37 +142,37 @@ body.hero-active .board-container-DTN_b .board-content-container-ToQTz .board-co
 }
 
 /* Disable poster zoom-in animation on hover */
-.meta-item-container-Tj0Ib:hover .poster-container-qkw48 .poster-image-layer-KimPZ, 
-.meta-item-container-Tj0Ib:focus .poster-container-qkw48 .poster-image-layer-KimPZ,
-.meta-item-container-Tj0Ib.active .poster-container-qkw48 .poster-image-layer-KimPZ,
-.meta-item-container-Tj0Ib.selected .poster-container-qkw48 .poster-image-layer-KimPZ {
+[class*="meta-item-container-"]:hover [class*="poster-container-"] [class*="poster-image-layer-"], 
+[class*="meta-item-container-"]:focus [class*="poster-container-"] [class*="poster-image-layer-"],
+[class*="meta-item-container-"].active [class*="poster-container-"] [class*="poster-image-layer-"],
+[class*="meta-item-container-"].selected [class*="poster-container-"] [class*="poster-image-layer-"] {
     transform: unset; 
 }
 
 /* Dismiss top left corner button */
-.meta-item-container-Tj0Ib .poster-container-qkw48 .dismiss-icon-layer-BWztF {
+[class*="meta-item-container-"] [class*="poster-container-"] [class*="dismiss-icon-layer-"] {
     filter: var(--shadow);
     box-shadow: var(--box-shadow);
     border: 1px solid transparent;
     transition: 0.2s all ease;
 }
 
-.meta-item-container-Tj0Ib .poster-container-qkw48 .dismiss-icon-layer-BWztF:hover {
+[class*="meta-item-container-"] [class*="poster-container-"] [class*="dismiss-icon-layer-"]:hover {
     background: var(--background);
     border-color: var(--tertiary-accent-color) !important;
 }
 
-.meta-item-container-Tj0Ib .poster-container-qkw48 .dismiss-icon-layer-BWztF:active {    
+[class*="meta-item-container-"] [class*="poster-container-"] [class*="dismiss-icon-layer-"]:active {    
     transform: scale(0.85);
     border-color: transparent !important;
 }
 
-.meta-item-container-Tj0Ib .poster-container-qkw48 .dismiss-icon-layer-BWztF .dismiss-icon-db3fv {
+[class*="meta-item-container-"] [class*="poster-container-"] [class*="dismiss-icon-layer-"] [class*="dismiss-icon-"] {
     color: var(--tertiary-accent-color);
     opacity: 0.6;
 }
 
-.meta-item-container-Tj0Ib .poster-container-qkw48 .dismiss-icon-layer-BWztF .dismiss-icon-db3fv:hover {
+[class*="meta-item-container-"] [class*="poster-container-"] [class*="dismiss-icon-layer-"] [class*="dismiss-icon-"]:hover {
     opacity: 1;
 }
 
@@ -186,7 +186,7 @@ body.hero-active .board-container-DTN_b .board-content-container-ToQTz .board-co
 =            PLAY BUTTON            =
 =============================================*/
 
-.meta-item-container-Tj0Ib .poster-container-qkw48 .play-icon-layer-vpQIo {
+[class*="meta-item-container-"] [class*="poster-container-"] [class*="play-icon-layer-"] {
     border-radius: 100%;
     box-shadow: var(--box-shadow);
     filter: var(--shadow) !important;
@@ -194,27 +194,27 @@ body.hero-active .board-container-DTN_b .board-content-container-ToQTz .board-co
     transform: scale(1.2);
 }
 
-.meta-item-container-Tj0Ib .poster-container-qkw48 .play-icon-layer-vpQIo:hover {
+[class*="meta-item-container-"] [class*="poster-container-"] [class*="play-icon-layer-"]:hover {
     backdrop-filter: var(--backdrop-filter) !important;
     box-shadow: var(--box-shadow), var(--outer-glow);
 
     transform: scale(1.4);
 }
 
-.meta-item-container-Tj0Ib .poster-container-qkw48 .play-icon-layer-vpQIo:active {
+[class*="meta-item-container-"] [class*="poster-container-"] [class*="play-icon-layer-"]:active {
     transform: scale(1);
 }
 
-.meta-item-container-Tj0Ib .poster-container-qkw48 .play-icon-layer-vpQIo .play-icon-QmEEA {
+[class*="meta-item-container-"] [class*="poster-container-"] [class*="play-icon-layer-"] [class*="play-icon-"] {
     color: var(--primary-foreground-color);
     transition: color 0.8s ease;
 }
 
-.meta-item-container-Tj0Ib .poster-container-qkw48 .play-icon-layer-vpQIo .play-icon-QmEEA:hover {
+[class*="meta-item-container-"] [class*="poster-container-"] [class*="play-icon-layer-"] [class*="play-icon-"]:hover {
     color: var(--tertiary-accent-color);
 }
 
-.meta-item-container-Tj0Ib .poster-container-qkw48 .play-icon-layer-vpQIo .play-icon-outer-r3iKR {
+[class*="meta-item-container-"] [class*="poster-container-"] [class*="play-icon-layer-"] [class*="play-icon-outer-"] {
     backdrop-filter: var(--backdrop-filter) !important;
     background-color: var(--background) !important;
     box-shadow: 10px 10px 25px 0.1rem var(--accent) inset;
@@ -224,7 +224,7 @@ body.hero-active .board-container-DTN_b .board-content-container-ToQTz .board-co
 }
 
 
-.meta-item-container-Tj0Ib .poster-container-qkw48 .play-icon-layer-vpQIo .play-icon-background-Uazjh {
+[class*="meta-item-container-"] [class*="poster-container-"] [class*="play-icon-layer-"] [class*="play-icon-background-"] {
     background-color: var(--background) !important;
 }
 /*=====  End of PLAY BUTTON  ======*/

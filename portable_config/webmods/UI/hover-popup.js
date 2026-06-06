@@ -17,7 +17,7 @@ const POPUP_CONFIG = {
   verboseLogging: false, // Enable detailed logging
   defaultAvatarUrl:
     "https://icons.veryicon.com/png/128/clothes-accessories/through-item/avatar-10.png",
-  containerSelector: ".poster-container-qkw48", // Selector for poster containers
+  containerSelector: '[class*="poster-container-"]', // Selector for poster containers
 };
 
 // Template functions for generating popup HTML content
