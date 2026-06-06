@@ -36,7 +36,7 @@
 
   let state = {
     currentStep: 0,
-    totalSteps: 6,
+    totalSteps: 5,
     dom: {},
     heroBannerModified: false,
     cacheClearNeeded: false,
@@ -218,31 +218,8 @@
                             </div>
                         </div>
 
-                        <!-- Step 4: Anime Enhancements -->
+                        <!-- Step 5: Enhanced Metadata (Optional) -->
                         <div class="kai-wizard-step" data-step="3">
-                            <div class="kai-wizard-option">
-                                <div class="kai-wizard-opt-info">
-                                    <div class="kai-wizard-opt-title">Anime4K Upscale</div>
-                                    <div class="kai-wizard-opt-desc">Real-time shaders for high-quality upscaling.</div>
-                                </div>
-                                <select class="kai-wizard-select" data-key="anime4k">
-                                    <option value="none">Off</option>
-                                    <option value="optimized" selected>Optimized+ (Default)</option>
-                                    <option value="fast">Eye Candy (Fast)</option>
-                                    <option value="hq">Eye Candy (HQ)</option>
-                                </select>
-                            </div>
-                            <div class="kai-wizard-option">
-                                <div class="kai-wizard-opt-info">
-                                    <div class="kai-wizard-opt-title">SVP Motion Interpolation</div>
-                                    <div class="kai-wizard-opt-desc">Fluid playback via frame generation to double the frame rate.</div>
-                                </div>
-                                <div class="kai-wizard-toggle active" data-key="svp"></div>
-                            </div>
-                        </div>
-
-                         <!-- Step 5: Enhanced Metadata (Optional) -->
-                        <div class="kai-wizard-step" data-step="4">
                              <!-- Language Selector -->
                              <div class="kai-wizard-option" style="margin-bottom: 2rem;">
                                 <div class="kai-wizard-opt-info">
@@ -284,7 +261,7 @@
                         </div>
 
                         <!-- Step 6: Finish -->
-                        <div class="kai-wizard-step" data-step="5">
+                        <div class="kai-wizard-step" data-step="4">
                             <div style="text-align: center;">
                                 <div style="font-size: 3rem; margin-bottom: 1.5rem;">✨</div>
                                 <div class="kai-wizard-opt-title" style="font-size: 1.4rem; margin-bottom: 0.5rem;">Setup Complete!</div>
@@ -312,7 +289,6 @@
                     <div class="kai-wizard-footer">
                         <div class="kai-wizard-dots">
                             <div class="kai-wizard-dot active"></div>
-                            <div class="kai-wizard-dot"></div>
                             <div class="kai-wizard-dot"></div>
                             <div class="kai-wizard-dot"></div>
                             <div class="kai-wizard-dot"></div>
@@ -561,7 +537,7 @@
       // Optional flag logic
       const descEl = state.dom.overlay.querySelector("#kz-desc");
       if (descEl) {
-        descEl.style.display = state.currentStep === 4 ? "block" : "none";
+        descEl.style.display = state.currentStep === 3 ? "block" : "none";
       }
     },
 
@@ -572,8 +548,6 @@
         case 2:
           return "Visual Setup";
         case 3:
-          return "Anime Enhancements";
-        case 4:
           return "Enhanced Metadata";
         default:
           return "Onboarding";
@@ -587,8 +561,6 @@
         case 2:
           return "Unlock the full potential of your display.";
         case 3:
-          return "Advanced upscaling and motion smoothing for anime content.";
-        case 4:
           return "Enable private APIs for richer ratings, and more.";
         default:
           return "The ultimate Stremio experience.";

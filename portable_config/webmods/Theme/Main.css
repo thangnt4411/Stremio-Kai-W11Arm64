@@ -160,7 +160,11 @@ html {
     box-shadow: var(--box-shadow), var(--outer-glow);
 
     /* Keep it in the middle of the screen */
-    margin: 22vh 0;
+    position: absolute !important;
+    top: 0 !important;
+    bottom: 0 !important;
+    height: fit-content !important;
+    margin: auto 0 !important;
     min-height: 350px;
 
     overflow: visible;

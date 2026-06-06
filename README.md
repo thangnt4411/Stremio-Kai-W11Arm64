@@ -4,6 +4,15 @@
 <div align="center">
 <img width="200" alt="Stremio-Kai-v4.0" src="https://github.com/user-attachments/assets/36bc9425-24bc-4334-ac66-9c5645319afc" />
 
+> [!NOTE]
+> **Windows 11 ARM64 Port**
+> This repository is a custom fork optimized and compiled for native **Windows 11 ARM64** (e.g., Snapdragon X processors like Lenovo Slim 7x). 
+> Key enhancements include:
+> - **Native ARM64 Build**: Compiled shell and streaming server dependencies natively for ARM64.
+> - **Centering Fix**: Fixed layout issues with vertical sidebar navigation auto-centering on all window sizes.
+> - **Process Lifecycle Management**: Automatic cleanup of zombie `stremio.exe` or mộc `stremio-runtime.exe` processes on startup.
+> - **Streamlined Config**: Removed unsupported features on ARM64 (like Anime4K, VapourSynth, and SVP) to keep the app clean and high performance.
+
   <h1>Stremio Kai</h1>
 
   <p><i>A custom Stremio + MPV build that offers premium features and feels amazing—even on modest hardware.</i></p>

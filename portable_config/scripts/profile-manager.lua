@@ -591,8 +591,7 @@ function try_execute_profile()
     local shader_preset = meta.shader_preset or "optimized"
     local color_profile = meta.color_profile or "kai"
     local icc_profile_enabled = meta.icc_profile
-    local svp_enabled = meta.svp_enabled
-    if svp_enabled == nil then svp_enabled = true end
+    local svp_enabled = false -- Disabled on ARM64 (no VapourSynth/SVP support)
     local target_peak = meta.target_peak or "auto"
     local vulkan_mode = meta.vulkan_mode or false
 
