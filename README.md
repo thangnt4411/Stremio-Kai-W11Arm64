@@ -5,8 +5,6 @@
 > Key enhancements include:
 > 
 > - **Native ARM64 Build**: Compiled shell and streaming server dependencies natively for ARM64.
-> - **Centering Fix**: Fixed layout issues with vertical sidebar navigation auto-centering on all window sizes.
-> - **Process Lifecycle Management**: Automatic cleanup of zombie `stremio.exe` or `stremio-runtime.exe` processes on startup.
 > - **Streamlined Config**: Removed unsupported features on ARM64 (like Anime4K, VapourSynth, and SVP) to keep the app clean and high performance.
 
 ## Credits
