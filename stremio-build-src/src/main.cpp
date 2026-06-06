@@ -68,15 +68,10 @@ int main(int argc, char *argv[]) {
   }
   g_launchProtocol = launchProtocol;
 
-  // check stremio-runtime duplicates
+  // kill stremio-runtime and stremio duplicates to avoid port conflict or zombie processes
   std::vector<std::wstring> processesToCheck = {L"stremio.exe",
                                                 L"stremio-runtime.exe"};
-  if (IsDuplicateProcessRunning(processesToCheck)) {
-    MessageBoxW(nullptr,
-                L"An older version of Stremio or Stremio server may be "
-                L"running. There could be issues.",
-                L"Stremio Already Running", MB_OK | MB_ICONWARNING);
-  }
+  KillDuplicateProcesses(processesToCheck);
 
   // init GDI+
   Gdiplus::GdiplusStartupInput gpsi;

@@ -86,6 +86,38 @@ bool IsDuplicateProcessRunning(const std::vector<std::wstring>& targetProcesses)
     return false;
 }
 
+void KillDuplicateProcesses(const std::vector<std::wstring>& targetProcesses)
+{
+    DWORD currentPid = GetCurrentProcessId();
+    HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+    if (hSnapshot == INVALID_HANDLE_VALUE) {
+        return;
+    }
+    PROCESSENTRY32W processEntry;
+    processEntry.dwSize = sizeof(PROCESSENTRY32W);
+    if (!Process32FirstW(hSnapshot, &processEntry)) {
+        CloseHandle(hSnapshot);
+        return;
+    }
+    do {
+        if (processEntry.th32ProcessID == currentPid) {
+            continue;
+        }
+        std::wstring exeName(processEntry.szExeFile);
+        for (const auto& target : targetProcesses) {
+            if (_wcsicmp(exeName.c_str(), target.c_str()) == 0) {
+                HANDLE hProcess = OpenProcess(PROCESS_TERMINATE, FALSE, processEntry.th32ProcessID);
+                if (hProcess != nullptr) {
+                    TerminateProcess(hProcess, 0);
+                    CloseHandle(hProcess);
+                }
+            }
+        }
+    } while (Process32NextW(hSnapshot, &processEntry));
+
+    CloseHandle(hSnapshot);
+}
+
 // For local files
 std::string decodeURIComponent(const std::string& encoded) {
     std::string result;

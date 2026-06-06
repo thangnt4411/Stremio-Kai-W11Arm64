@@ -5,6 +5,7 @@
 #include <thread>
 #include <atomic>
 #include <iostream>
+#include <fstream>
 #include "../core/globals.h"
 #include "../ui/mainwindow.h"
 #include "../utils/crashlog.h"
@@ -14,11 +15,18 @@ static void NodeOutputThreadProc()
 {
     char buf[1024];
     DWORD readSz=0;
+    std::wstring logPath = GetExeDirectory() + L"\\portable_config\\node_console.log";
     while(g_nodeRunning){
         BOOL ok = ReadFile(g_nodeOutPipe, buf, sizeof(buf)-1, &readSz, nullptr);
         if(!ok || readSz==0) break;
         buf[readSz]='\0';
         std::cout<<"[node] "<<buf;
+
+        std::ofstream logFile(logPath, std::ios::app | std::ios::binary);
+        if (logFile.is_open()) {
+            logFile.write(buf, readSz);
+            logFile.close();
+        }
     }
     std::cout<<"NodeOutputThreadProc done.\n";
 }
@@ -87,13 +95,13 @@ bool StartNodeServer()
     si.dwFlags=STARTF_USESTDHANDLES;
 
     PROCESS_INFORMATION pi;ZeroMemory(&pi,sizeof(pi));
-    std::wstring cmdLine = L"\"stremio-runtime.exe\" \"server.js\"";
+    std::wstring cmdLine = L"\"" + exePath + L"\" \"" + scriptPath + L"\"";
 
     SetEnvironmentVariableW(L"NO_CORS", L"1");
     BOOL success = CreateProcessW(
         nullptr, &cmdLine[0],
         nullptr,nullptr, TRUE,
-        CREATE_NO_WINDOW,nullptr,nullptr,
+        CREATE_NO_WINDOW,nullptr,exeDir.c_str(),
         &si, &pi
     );
     CloseHandle(inR);

@@ -16,6 +16,7 @@
 #include "../webview/webview.h"
 #include "../updater/updater.h"
 #include "../utils/discord.h"
+#include "../node/server.h"
 
 // Single-instance
 bool FocusExistingInstance(const std::wstring &protocolArg)
@@ -581,6 +582,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         break;
     case WM_DESTROY:
     {
+        StopNodeServer();
         // release mutex
         if(g_hMutex) { CloseHandle(g_hMutex); g_hMutex=nullptr; }
         PostQuitMessage(0);

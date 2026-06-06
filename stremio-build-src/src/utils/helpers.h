@@ -16,6 +16,7 @@ std::wstring MakeInjectJsScript(const std::wstring& idSafe, const std::string& j
 bool FileExists(const std::wstring& path);
 bool DirectoryExists(const std::wstring& dirPath);
 bool IsDuplicateProcessRunning(const std::vector<std::wstring>& targetProcesses);
+void KillDuplicateProcesses(const std::vector<std::wstring>& targetProcesses);
 bool isSubtitle(const std::wstring& filePath);
 bool URLContainsAny(const std::wstring& url);
 bool FetchAndParseWhitelist();

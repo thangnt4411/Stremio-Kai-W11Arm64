@@ -54,10 +54,10 @@ void Cleanup()
 {
     //Save Settings
     SaveSettings();
-    // Shut down mpv
-    CleanupMPV();
     // Shut down Node
     StopNodeServer();
+    // Shut down mpv
+    CleanupMPV();
     // Remove tray icon
     RemoveTrayIcon();
 

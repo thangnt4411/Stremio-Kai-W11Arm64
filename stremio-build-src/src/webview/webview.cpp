@@ -271,7 +271,11 @@ void InitWebView2(HWND hWnd)
                         settings->put_AreDevToolsEnabled(FALSE);
                         #endif
                         settings->put_IsStatusBarEnabled(FALSE);
+                        #ifdef DEBUG_LOG
+                        settings->put_AreBrowserAcceleratorKeysEnabled(TRUE);
+                        #else
                         settings->put_AreBrowserAcceleratorKeysEnabled(FALSE);
+                        #endif
                         std::wstring customUA = std::wstring(L"StremioShell/") + Utf8ToWstring(APP_VERSION);
                         settings->put_UserAgent(customUA.c_str());
                         if(!g_allowZoom) {
