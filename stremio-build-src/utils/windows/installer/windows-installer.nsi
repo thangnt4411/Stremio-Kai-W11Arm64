@@ -4,6 +4,10 @@
 
 Unicode True
 
+!addincludedir "..\NsProcess\Include"
+!addplugindir /x86-ansi "..\NsProcess\Plugin\x86-ansi"
+!addplugindir /x86-unicode "..\NsProcess\Plugin\x86-unicode"
+
 #Tells the compiler whether or not to do datablock optimizations.
 SetDatablockOptimize on
 
@@ -50,7 +54,7 @@ CRCCheck on
 ;SetCompressor lzma
 ;SetCompressorDictSize 1
 SetCompressor /SOLID lzma
-SetCompressorDictSize 128
+SetCompressorDictSize 32
 
 ;Default installation folder
 InstallDir "$LOCALAPPDATA\Programs\LNV\${APP_NAME}-${VERSION_MAJOR}"

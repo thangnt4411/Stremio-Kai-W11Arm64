@@ -34,26 +34,6 @@
       description: "Switch between Night Mode, Voice Clarity, and OFF modes.",
     },
     {
-      name: "Anime4K: Optimized+",
-      keys: ["F1"],
-      description: "Efficient upscaling for lower-end hardware.",
-    },
-    {
-      name: "Anime4K: Eye Candy (Fast)",
-      keys: ["F2"],
-      description: "Balanced upscaling for most systems.",
-    },
-    {
-      name: "Anime4K: Eye Candy (HQ)",
-      keys: ["F3"],
-      description: "High-quality upscaling for powerful GPUs.",
-    },
-    {
-      name: "Clear Anime4K",
-      keys: ["F4"],
-      description: "Removes only Anime4K shaders.",
-    },
-    {
       name: "Reset All Shaders",
       keys: ["Ctrl", "+", "F4"],
       description: "Disables all active GLSL shaders.",
@@ -89,19 +69,9 @@
       description: "Shader-based denoising (lighter).",
     },
     {
-      name: "SVP Motion Smoothing",
-      keys: ["F12"],
-      description: "Enables high frame rate interpolation.",
-    },
-    {
       name: "Deinterlace",
       keys: ["F7"],
       description: "Fixes combing artifacts in older content.",
-    },
-    {
-      name: "Deinterlace + SVP",
-      keys: ["Ctrl", "+", "F12"],
-      description: "Combined processing for interlaced content.",
     },
   ];
 

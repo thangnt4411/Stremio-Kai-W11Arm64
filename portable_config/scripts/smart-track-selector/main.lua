@@ -212,6 +212,18 @@ local function matches_language(track_lang, lang_list)
     return false, 0
 end
 
+-- Check if title contains any language name (avoiding short codes like "vi" or "en" to prevent false positives)
+local function matches_language_by_title(title, lang_list)
+    if not title or title == "" or #lang_list == 0 then return false, 0 end
+
+    for i, lang in ipairs(lang_list) do
+        if string.len(lang) > 2 and contains_keyword(title, lang) then
+            return true, i
+        end
+    end
+    return false, 0
+end
+
 -- Check if title contains any keyword from the list, returns position (1 = best)
 local function matches_keyword(title, keyword_list)
     if not title or #keyword_list == 0 then return false, 0 end
@@ -260,6 +272,10 @@ local function evaluate_track(track, track_type, cfg)
 
     -- Language scoring
     local lang_match, lang_pos = matches_language(lang, cfg.preferred_langs)
+    -- Fallback: check title for language names (only for subtitles to avoid false positives on audio)
+    if not lang_match and track_type == "sub" then
+        lang_match, lang_pos = matches_language_by_title(title, cfg.preferred_langs)
+    end
     if lang_match then
         score.lang_priority = lang_pos
         log_debug(string.format("    + Language match at priority %d", lang_pos))
@@ -492,6 +508,14 @@ local function defend_subtitle(name, value)
         end
     elseif not state.defense_active and not state.auto_change_in_progress then
         -- Passive mode: User changed track, queue save
+        if state.external_sub_watch then
+            log_info("User manually changed subtitle track. Disabling external sub watch.")
+            state.external_sub_watch = false
+            if state.external_sub_timer then
+                state.external_sub_timer:kill()
+                state.external_sub_timer = nil
+            end
+        end
         queue_save()
     end
 end
@@ -797,9 +821,9 @@ local function on_file_loaded()
     -- Activate defense
     activate_defense()
     
-    -- If no subtitle found, start watching for external subs
-    if not state.best_sid and state.subtitle_mode ~= "off" then
-        log_info("No suitable sub found. Waiting for external subs (" .. EXTERNAL_SUB_TIMEOUT .. "s)...")
+    -- Start watching for external subs (always do this for 10s to catch late-loading addon subtitles)
+    if state.subtitle_mode ~= "off" then
+        log_info("Waiting for external subs (" .. EXTERNAL_SUB_TIMEOUT .. "s)...")
         state.external_sub_watch = true
         -- Count only subtitle tracks, not all tracks
         local initial_sub_count = 0
@@ -814,11 +838,35 @@ local function on_file_loaded()
         end
         state.external_sub_timer = mp.add_timeout(EXTERNAL_SUB_TIMEOUT, function()
             if state.external_sub_watch then
-                log_info("External sub watch timeout. No suitable sub found.")
+                log_info("External sub watch timeout.")
                 state.external_sub_watch = false
             end
         end)
     end
+end
+
+-- Check if track is the top preferred language (priority 1)
+local function is_top_preferred_sub(track_id, track_list)
+    if not track_id or not track_list then return false end
+    local cfg = parse_config()["sub"]
+    if not cfg or #cfg.preferred_langs == 0 then return false end
+    
+    for _, track in ipairs(track_list) do
+        if track.id == track_id and track.type == "sub" then
+            local title = track.title or ""
+            local lang = track.lang or ""
+            if track.forced then title = title .. " forced" end
+            
+            local lang_match, lang_pos = matches_language(lang, cfg.preferred_langs)
+            if not lang_match and title ~= "" then
+                lang_match, lang_pos = matches_language_by_title(title, cfg.preferred_langs)
+            end
+            
+            -- If it matches the very first preferred language (Vietnamese)
+            return lang_match and lang_pos == 1
+        end
+    end
+    return false
 end
 
 -- Re-evaluate subtitles when new tracks appear (for external subs)
@@ -851,10 +899,17 @@ local function on_track_list_change(name, track_list)
             log_info("Found suitable external sub #" .. tostring(new_sid))
             state.best_sid = new_sid
             set_sid_safe(new_sid)
-            state.external_sub_watch = false
-            if state.external_sub_timer then
-                state.external_sub_timer:kill()
-                state.external_sub_timer = nil
+            
+            -- Stop watching ONLY if we found the top preferred subtitle language (Vietnamese)
+            if is_top_preferred_sub(new_sid, track_list) then
+                log_info("Top preferred subtitle language selected. Disabling external sub watch.")
+                state.external_sub_watch = false
+                if state.external_sub_timer then
+                    state.external_sub_timer:kill()
+                    state.external_sub_timer = nil
+                end
+            else
+                log_info("Selected sub is not top preference. Keeping external sub watch active.")
             end
         end
     end

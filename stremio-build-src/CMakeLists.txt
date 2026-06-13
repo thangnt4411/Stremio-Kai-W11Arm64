@@ -46,9 +46,9 @@ include_directories(${MPV_INCLUDE_DIR})
 
 if(ARM64_BUILD)
     # Manual ARM64 paths
-    set(OPENSSL_INCLUDE_DIR "C:/Apps/Stremio-Kai/openssl-4.0.0.3/arm64/include")
-    set(OPENSSL_SSL_LIBRARY "C:/Apps/Stremio-Kai/openssl-4.0.0.3/arm64/lib/libssl.lib")
-    set(OPENSSL_CRYPTO_LIBRARY "C:/Apps/Stremio-Kai/openssl-4.0.0.3/arm64/lib/libcrypto.lib")
+    set(OPENSSL_INCLUDE_DIR "C:/Projects/Streamio-Kai-Arm64/Stremio-Kai/openssl-4.0.0.3/arm64/include")
+    set(OPENSSL_SSL_LIBRARY "C:/Projects/Streamio-Kai-Arm64/Stremio-Kai/openssl-4.0.0.3/arm64/lib/libssl.lib")
+    set(OPENSSL_CRYPTO_LIBRARY "C:/Projects/Streamio-Kai-Arm64/Stremio-Kai/openssl-4.0.0.3/arm64/lib/libcrypto.lib")
     set(OPENSSL_LIBRARIES ${OPENSSL_SSL_LIBRARY} ${OPENSSL_CRYPTO_LIBRARY})
 
     set(CURL_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/deps/curl-arm64/include")
